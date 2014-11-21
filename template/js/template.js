@@ -1,3 +1,7 @@
+$(document).keyup(function(event) {
+	if(_s.name == "multi_trial" && (event.keyCode == 80 || event.keyCode == 81)) _s.check(event.keyCode);
+});
+
 function make_slides(f) {
   var   slides = {};
 
@@ -13,6 +17,86 @@ function make_slides(f) {
     button : function() {
       exp.go(); //use exp.go() if and only if there is no "present" data.
     }
+  });
+  
+  var ntrials = 10;
+  slides.multi_trial = slide({
+	  name: "multi_trial",
+	  count: ntrials,
+	  disp: 0,
+	  timelimit: 3000,
+	  present: _.range(ntrials),
+	  
+	  start : function() {
+		  $(".err").hide();
+		  this.present = [];
+		  var sample = (exp.condition == "Leftbias")?[1,0,0]:[0,1,1];
+		  for(var i = 0; i < ntrials; i++) {
+			  var index = Math.floor(Math.random()*sample.length);
+			  this.present.push({answer:sample[index]});
+		  }
+		  this.present.push("dummy");
+	      $(".prompt").html("Here's the bandit trials. Hit 'q' and 'p' to indicate your choice.");
+	  },
+
+	  present_handle : function(stim) {
+	      this.stim = stim; //I like to store this information in the slide so I can record it later.
+	      $(".status").html("Your bias is "+exp.condition+". Your score is "+exp.score+". You have "+this.count+" trials left.");
+	      $(".result").html(" ");
+	      if(!this.count) {
+	    	  this.disp = 1;
+	    	  $(".procbutton").show();
+		      $(".prompt").html("You're all done with this portion of the experiment. Hit the button to proceed.");
+	      }
+	      var current = this.count;
+	      window.setTimeout(function(){_s.timeout(current);},this.timelimit);
+	  },
+
+
+	  check : function(val) {
+		  var choice = 81-val;
+		  if(!this.disp) {
+			  this.disp = 1;
+			  if(choice == this.stim.answer) {
+				  this.log_responses(choice,"Correct");
+				  $(".result").html("Correct");
+				  exp.score++;
+			  } else {
+				  this.log_responses(choice,"Incorrect");
+				  $(".result").html("Incorrect");
+			  }
+			  window.setTimeout(this.proceed,1500);
+		  }
+	  },
+
+	  
+	  timeout : function(current) {
+		  if(this.count && !this.disp && current==this.count) {
+			  this.disp = 1;
+			  $(".result").html("You did not answer within the time limit.");
+			  this.log_responses(2,"Timeout");
+			  window.setTimeout(this.proceed,1500);
+		  }
+	  },
+	  
+	  proceed : function() {
+		  _s.count--;
+		  _s.disp = 0;
+		  _stream.apply(_s);
+	  },
+
+	  button : function() {
+	      this.log_responses(exp.score, "Final");
+	      exp.go();
+	  },
+	  
+	  log_responses : function(answer, result) {
+	      exp.data_trials.push({
+	        "trial_type" : "multi_trial",
+	        "response" : answer,
+	        "result" : result
+	      });
+	  }
   });
 
   slides.single_trial = slide({
@@ -188,7 +272,8 @@ function make_slides(f) {
 function init() {
   exp.trials = [];
   exp.catch_trials = [];
-  exp.condition = _.sample(["CONDITION 1", "condition 2"]); //can randomize between subject conditions here
+  exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
+  exp.score = 0;
   exp.system = {
       Browser : BrowserDetect.browser,
       OS : BrowserDetect.OS,
@@ -198,7 +283,7 @@ function init() {
       screenUW: exp.width
     };
   //blocks of the experiment:
-  exp.structure=["i0", "instructions", "single_trial", "one_slider", "multi_slider", 'subj_info', 'thanks'];
+  exp.structure=["i0", "instructions", "multi_trial", "single_trial", "one_slider", "multi_slider", 'subj_info', 'thanks'];
   
   exp.data_trials = [];
   //make corresponding slides:
