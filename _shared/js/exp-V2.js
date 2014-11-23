@@ -63,6 +63,8 @@ make_exp = function() {
   };
 
   f.phase = 0; //out of all the trials, what number are we on?
+  f.secphase = 0;
+  f.cursec = 0;
   return f;
 }
 exp=make_exp();

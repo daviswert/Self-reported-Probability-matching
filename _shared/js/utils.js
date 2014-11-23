@@ -5,10 +5,10 @@ var utils = {
 			$("#" + slidename).show();
 	},
 
-	get_exp_length: function() {
+	get_length: function(start, end) {
 		if (exp.structure && exp.slides) {
 				var length = 0;
-				for (var i=0; i<exp.structure.length; i++) {
+				for (var i=start; i<=end; i++) {
 						var a_slide = exp.slides[exp.structure[i]];
 						if (a_slide.present) {
 								length += a_slide.present.length;
@@ -16,7 +16,7 @@ var utils = {
 								length ++;
 						}
 				}
-				return length - 1; //don't count the last slide
+				return length-1; //Don't count last slide 
 		}
 	},
 

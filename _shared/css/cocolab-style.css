@@ -10,7 +10,7 @@ table {
 /*the experiment happens in "slides"*/
 .slide {
 	/*pad the inside of the slide*/
-	padding-top: 10px;
+	padding-top: 50px;
 	padding-left: 20px;
 	padding-right: 20px;
 
@@ -118,7 +118,19 @@ textarea {
   right: 10px;
   top: 10px;
 }
+
+.secprogress{
+  position: absolute;
+  right: 10px;
+  top: 40px;	
+}
+
 .progress span{
+  position:relative;
+  top: -6px;
+}
+
+.secprogress span{
   position:relative;
   top: -6px;
 }
@@ -131,6 +143,13 @@ textarea {
 }
 
 .bar{
+    position:relative;
+    height:100%;
+    width:0px;
+    background-color:#000000
+}
+
+.secbar{
     position:relative;
     height:100%;
     width:0px;

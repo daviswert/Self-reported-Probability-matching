@@ -19,23 +19,33 @@ function make_slides(f) {
     }
   });
   
+  slides.practice = slide({
+	  name : "practice",
+	  button : function() {
+		  exp.go();
+	  }
+  })
+  
   var ntrials = 10;
+  var bias = .7; //Level of bias toward one side or the other, expressed as a decimal > 0.5
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: ntrials,
 	  disp: 0,
 	  timelimit: 3000,
-	  present: _.range(ntrials),
+	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
 	  
 	  start : function() {
 		  $(".err").hide();
-		  this.present = [];
-		  var sample = (exp.condition == "Leftbias")?[1,0,0]:[0,1,1];
-		  for(var i = 0; i < ntrials; i++) {
-			  var index = Math.floor(Math.random()*sample.length);
-			  this.present.push({answer:sample[index]});
-		  }
+		  var sample = [];
+		  var nbiased = Math.floor(bias*ntrials);
+		  for(var i = 0; i < nbiased; i++) 
+			  sample.push(exp.condition == "Leftbias"?{"answer": 0}:{"answer": 1});
+		  for(var i = 0; i < ntrials-nbiased; i++) 
+			  sample.push(exp.condition == "Leftbias"?{"answer": 1}:{"answer": 0});
+		  this.present = _.shuffle(sample);
 		  this.present.push("dummy");
+		  console.log(this.present);
 	      $(".prompt").html("Here's the bandit trials. Hit 'q' and 'p' to indicate your choice.");
 	  },
 
@@ -270,7 +280,6 @@ function make_slides(f) {
 
 /// init ///
 function init() {
-  exp.trials = [];
   exp.catch_trials = [];
   exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
   exp.score = 0;
@@ -283,17 +292,22 @@ function init() {
       screenUW: exp.width
     };
   //blocks of the experiment:
-  exp.structure=["i0", "instructions", "multi_trial", "single_trial", "one_slider", "multi_slider", 'subj_info', 'thanks'];
-  
+  exp.structure=["i0", "instructions", "practice", "multi_trial", "single_trial", 'subj_info', 'thanks']; //"one_slider", "multi_slider", 'subj_info', 'thanks'];
+
+  //Define section bounds for the secondary progress bar
+  exp.secEnd=[-1,2,3,exp.structure.length-1]; //The indices in exp.structure of the end slide of each section
+
   exp.data_trials = [];
   //make corresponding slides:
   exp.slides = make_slides(exp);
 
-  exp.nQs = utils.get_exp_length(); //this does not work if there are stacks of stims (but does work for an experiment with this structure)
+  exp.nQs = utils.get_length(0,exp.structure.length-1); //this does not work if there are stacks of stims (but does work for an experiment with this structure)
                     //relies on structure and slides being defined
-
+  					//doesn't count last slide
+  exp.secnQs = [];
+  for(var i = 1; i < exp.secEnd.length; i++) exp.secnQs.push(utils.get_length(exp.secEnd[i-1]+1,exp.secEnd[i]));
   $('.slide').hide(); //hide everything
-
+  
   //make sure turkers have accepted HIT (or you're not in mturk)
   $("#start_button").click(function() {
     if (turk.previewMode) {
