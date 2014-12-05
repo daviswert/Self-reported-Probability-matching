@@ -61,8 +61,8 @@ function make_slides(f) {
 	  present : ["Correct!",
 	             "Now, let's pretend that we know the marble is in container P. Which container holds the marble?",
 	             "Correct!",
-	             "During the actual trials, you will have a 3-second time limit to respond.",
-	             "Your answer and score on any trial will have no effect on the correct answers to subsequent trials. The correct answers have already been decided.",
+	             "During the actual trials, you will have a 3-second time limit to respond.</p><p>The next trial will proceed shortly after the ending of the previous one.",
+	             "Your answer and score on any trial will have no effect on the correct answers to subsequent trials.</p><p>The correct answers have already been decided.",
 	             "This completes the tutorial. Hit the button when you are ready to proceed. The trials will start immediately and cannot be paused.</p><p>Good luck!"],
 	  step : 0,
 	  
