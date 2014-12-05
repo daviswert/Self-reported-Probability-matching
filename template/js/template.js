@@ -30,12 +30,12 @@ function make_slides(f) {
 	  }
   })
   
-  var ntrials = 10;
-  var bias = .7; //Level of bias toward one side or the other, expressed as a decimal > 0.5
+  var ntrials = 20;
+  var bias = 1; //Level of bias toward one side or the other, expressed as a decimal > 0.5
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: ntrials,
-	  disp: 0,
+	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
 	  timelimit: 3000,
 	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
 	  startTime: 0,
@@ -51,13 +51,14 @@ function make_slides(f) {
 		  this.present = _.shuffle(sample);
 		  this.present.push("dummy");
 		  console.log(this.present);
-	      $(".prompt").html("Here's the bandit trials. Hit 'q' and 'p' to indicate your choice.");
+	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
 
 	  present_handle : function(stim) {
 	      this.stim = stim;
-	      $(".status").html("Your bias is "+exp.condition+". Your score is "+exp.score+". You have "+this.count+" trials left.");
+	      $(".status").html("Your score is "+exp.score+"/"+ntrials);
 	      $(".result").html(" ");
+	      $(".marble").hide();
 	      if(!this.count) {
 	    	  this.disp = 1;
 	    	  $(".procbutton").show();
@@ -82,6 +83,7 @@ function make_slides(f) {
 				  this.log_responses(choice,0,rTime);
 				  $(".result").html("Incorrect");
 			  }
+			  this.showmarble();
 			  window.setTimeout(this.proceed,1500);
 		  }
 	  },
@@ -92,8 +94,14 @@ function make_slides(f) {
 			  this.disp = 1;
 			  $(".result").html("You did not answer within the time limit.");
 			  this.log_responses(-1,-1,3000);
+			  this.showmarble();
 			  window.setTimeout(this.proceed,1500);
 		  }
+	  },
+	  
+	  showmarble : function() {
+			  if(this.stim.answer==0) $("#Qmarble").show();
+			  else $("#Pmarble").show();
 	  },
 	  
 	  proceed : function() {

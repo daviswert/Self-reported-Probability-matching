@@ -157,3 +157,39 @@ textarea {
     width:0px;
     background-color:#000000
 }
+
+/*Bandit Graphics*/
+#PContainer {
+	position:absolute;
+	left: 50%;
+	top: 400px;
+    width: 200px;
+    margin: 10px;
+    transform: translate(50px);
+}
+
+#QContainer {
+	position: absolute;
+	right: 50%;
+	top: 400px;
+    width: 200px;
+    margin: 10px;
+    transform: translate(-50px);
+}
+
+.marble {
+	position: absolute;
+	top: 300px;
+	width: 120px;
+	margin: 10px;
+}
+
+#Pmarble {
+	left: 50%;
+	transform: translate(90px);
+}
+
+#Qmarble {
+	right: 50%;
+	transform: translate(-90px);
+}
