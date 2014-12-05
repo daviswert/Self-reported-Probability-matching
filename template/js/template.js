@@ -2,6 +2,10 @@ $(document).keyup(function(event) {
 	if(_s.name == "multi_trial" && (event.keyCode == 80 || event.keyCode == 81)) _s.check(event.keyCode);
 });
 
+$(window).blur(function() {
+    exp.timesleft++;
+});
+
 function make_slides(f) {
   var   slides = {};
 
@@ -34,6 +38,7 @@ function make_slides(f) {
 	  disp: 0,
 	  timelimit: 3000,
 	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
+	  startTime: 0,
 	  
 	  start : function() {
 		  $(".err").hide();
@@ -50,7 +55,7 @@ function make_slides(f) {
 	  },
 
 	  present_handle : function(stim) {
-	      this.stim = stim; //I like to store this information in the slide so I can record it later.
+	      this.stim = stim;
 	      $(".status").html("Your bias is "+exp.condition+". Your score is "+exp.score+". You have "+this.count+" trials left.");
 	      $(".result").html(" ");
 	      if(!this.count) {
@@ -59,20 +64,22 @@ function make_slides(f) {
 		      $(".prompt").html("You're all done with this portion of the experiment. Hit the button to proceed.");
 	      }
 	      var current = this.count;
+	      this.startTime = Date.now();
 	      window.setTimeout(function(){_s.timeout(current);},this.timelimit);
 	  },
 
 
 	  check : function(val) {
+		  var rTime = Date.now()-this.startTime;
 		  var choice = 81-val;
 		  if(!this.disp) {
 			  this.disp = 1;
 			  if(choice == this.stim.answer) {
-				  this.log_responses(choice,"Correct");
+				  this.log_responses(choice,1,rTime);
 				  $(".result").html("Correct");
 				  exp.score++;
 			  } else {
-				  this.log_responses(choice,"Incorrect");
+				  this.log_responses(choice,0,rTime);
 				  $(".result").html("Incorrect");
 			  }
 			  window.setTimeout(this.proceed,1500);
@@ -84,7 +91,7 @@ function make_slides(f) {
 		  if(this.count && !this.disp && current==this.count) {
 			  this.disp = 1;
 			  $(".result").html("You did not answer within the time limit.");
-			  this.log_responses(2,"Timeout");
+			  this.log_responses(-1,-1,3000);
 			  window.setTimeout(this.proceed,1500);
 		  }
 	  },
@@ -100,11 +107,12 @@ function make_slides(f) {
 	      exp.go();
 	  },
 	  
-	  log_responses : function(answer, result) {
+	  log_responses : function(answer, result, rTime) {
 	      exp.data_trials.push({
 	        "trial_type" : "multi_trial",
 	        "response" : answer,
-	        "result" : result
+	        "result" : result,
+	        "time" : rTime
 	      });
 	  }
   });
@@ -269,7 +277,8 @@ function make_slides(f) {
           "system" : exp.system,
           "condition" : exp.condition,
           "subject_information" : exp.subj_data,
-          "time_in_minutes" : (Date.now() - exp.startT)/60000
+          "time_in_minutes" : (Date.now() - exp.startT)/60000,
+          "times_left" : exp.timesleft
       };
       setTimeout(function() {turk.submit(exp.data);}, 1000);
     }
@@ -283,6 +292,7 @@ function init() {
   exp.catch_trials = [];
   exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
   exp.score = 0;
+  exp.timesleft = 0;
   exp.system = {
       Browser : BrowserDetect.browser,
       OS : BrowserDetect.OS,
@@ -305,7 +315,7 @@ function init() {
                     //relies on structure and slides being defined
   					//doesn't count last slide
   exp.secnQs = [];
-  for(var i = 1; i < exp.secEnd.length; i++) exp.secnQs.push(utils.get_length(exp.secEnd[i-1]+1,exp.secEnd[i]));
+  for(var i = 1; i < exp.secEnd.length; i++) exp.secnQs.push(utils.get_length(exp.secEnd[i-1]+1,exp.secEnd[i])); // Populates secnQs array with length of each section
   $('.slide').hide(); //hide everything
   
   //make sure turkers have accepted HIT (or you're not in mturk)
