@@ -1,5 +1,6 @@
 $(document).keyup(function(event) {
-	if(_s.name == "multi_trial" && (event.keyCode == 80 || event.keyCode == 81)) _s.check(event.keyCode);
+	if((_s.name == "multi_trial" || _s.name == "practice1" || _s.name == "practice2") 
+			&& (event.keyCode == 80 || event.keyCode == 81)) _s.check(event.keyCode);
 });
 
 $(window).blur(function() {
@@ -23,20 +24,92 @@ function make_slides(f) {
     }
   });
   
-  slides.practice = slide({
-	  name : "practice",
+  var tutchoice = 0;
+  slides.practice1 = slide({
+	  name : "practice1",
+	  present : ["For each trial, you will see these two containers, labeled 'Q' and 'P'.",
+	             "One of these containers holds a marble. Your job is to guess which one, by typing the corresponding key on your keyboard. If you think the marble is in container Q, type 'q'. If you think it's in P, type 'p'.</p><p>If you are correct, you get a point.",
+	             "Let's try it now. Hit 'q' or 'p' to guess which container holds the marble."],
+	  step : 0,
+	  
+	  present_handle : function(stim) {
+	      this.stim = stim;
+	      $(".prompt").html(stim);
+	  },
+	  
+	  check : function(val) {
+		  tutchoice = 81-val;
+		  _stream.apply(_s);
+	  },
+	  
 	  button : function() {
-		  exp.go();
+		  if(this.step == 0) {
+			  $('.Qmarble').show();
+			  $('.Pmarble').show();
+		  } else {
+			  $('.Qmarble').hide();
+			  $('.Pmarble').hide();
+			  $('.button').hide();
+		  }
+		  this.step++;
+		  _stream.apply(_s);
 	  }
-  })
+  });
   
-  var ntrials = 20;
-  var bias = 1; //Level of bias toward one side or the other, expressed as a decimal > 0.5
+  slides.practice2 = slide({
+	  name : "practice2",
+	  present : ["Correct!",
+	             "Now, let's pretend that we know the marble is in container P. Which container holds the marble?",
+	             "Correct!",
+	             "During the actual trials, you will have a 3-second time limit to respond.",
+	             "Your answer and score on any trial will have no effect on the correct answers to subsequent trials. The correct answers have already been decided.",
+	             "This completes the tutorial. Hit the button when you are ready to proceed. The trials will start immediately and cannot be paused.</p><p>Good luck!"],
+	  step : 0,
+	  
+	  present_handle : function(stim) {
+		  this.stim = stim;
+		  if(this.step == 0) {
+			  if(tutchoice == 0) {
+				  $('.Qmarble').show();
+				  $('.Pmarble').hide();
+			  } else {
+				  $('.Pmarble').show();
+				  $('.Qmarble').hide();
+			  }
+			  window.setTimeout(function(){_s.proceed();},1500);
+		  }
+	      $(".prompt").html(stim);
+	      if(this.step == 2) $('.button').show();
+	  },
+	  
+	  proceed : function() {
+		  this.step++;
+		  $('.Pmarble').hide();
+		  $('.Qmarble').hide();
+		  _stream.apply(_s);
+	  },
+	  
+	  check : function(val) {
+		  if(81-val == 0) $('.prompt').html("That is incorrect. The marble is in container P. Which container holds the marble?");
+		  else {
+			  $('.Pmarble').show();
+			  _stream.apply(_s);
+			  window.setTimeout(function(){_s.proceed();},1500);
+		  }
+	  },
+	  
+	  button : function() {
+		  _stream.apply(_s);
+	  }
+  });
+  
+  var ntrials = 10;
+  var bias = .8; //Level of bias toward one side or the other, expressed as a decimal > 0.5
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: ntrials,
 	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
-	  timelimit: 3000,
+	  timelimit: 5000,
 	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
 	  startTime: 0,
 	  
@@ -50,7 +123,6 @@ function make_slides(f) {
 			  sample.push(exp.condition == "Leftbias"?{"answer": 1}:{"answer": 0});
 		  this.present = _.shuffle(sample);
 		  this.present.push("dummy");
-		  console.log(this.present);
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
 
@@ -58,7 +130,8 @@ function make_slides(f) {
 	      this.stim = stim;
 	      $(".status").html("Your score is "+exp.score+"/"+ntrials);
 	      $(".result").html(" ");
-	      $(".marble").hide();
+	      $(".Pmarble").hide();
+	      $(".Qmarble").hide();
 	      if(!this.count) {
 	    	  this.disp = 1;
 	    	  $(".procbutton").show();
@@ -73,6 +146,7 @@ function make_slides(f) {
 	  check : function(val) {
 		  var rTime = Date.now()-this.startTime;
 		  var choice = 81-val;
+		  if(this.count == ntrials) this.timelimit = 3000;
 		  if(!this.disp) {
 			  this.disp = 1;
 			  if(choice == this.stim.answer) {
@@ -92,6 +166,7 @@ function make_slides(f) {
 	  timeout : function(current) {
 		  if(this.count && !this.disp && current==this.count) {
 			  this.disp = 1;
+			  if(this.count == ntrials) this.timelimit = 3000;
 			  $(".result").html("You did not answer within the time limit.");
 			  this.log_responses(-1,-1,3000);
 			  this.showmarble();
@@ -100,8 +175,8 @@ function make_slides(f) {
 	  },
 	  
 	  showmarble : function() {
-			  if(this.stim.answer==0) $("#Qmarble").show();
-			  else $("#Pmarble").show();
+			  if(this.stim.answer==0) $(".Qmarble").show();
+			  else $(".Pmarble").show();
 	  },
 	  
 	  proceed : function() {
@@ -310,10 +385,10 @@ function init() {
       screenUW: exp.width
     };
   //blocks of the experiment:
-  exp.structure=["i0", "instructions", "practice", "multi_trial", "single_trial", 'subj_info', 'thanks']; //"one_slider", "multi_slider", 'subj_info', 'thanks'];
+  exp.structure=["i0", "instructions", "practice1", "practice2", "multi_trial", "single_trial", 'subj_info', 'thanks']; //"one_slider", "multi_slider", 'subj_info', 'thanks'];
 
   //Define section bounds for the secondary progress bar
-  exp.secEnd=[-1,2,3,exp.structure.length-1]; //The indices in exp.structure of the end slide of each section
+  exp.secEnd=[-1,3,4,exp.structure.length-1]; //The indices in exp.structure of the end slide of each section
 
   exp.data_trials = [];
   //make corresponding slides:
