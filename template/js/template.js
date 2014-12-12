@@ -61,8 +61,8 @@ function make_slides(f) {
 	  present : ["Correct!",
 	             "Now, let's pretend that we know the marble is in container P. Which container holds the marble?",
 	             "Correct!",
-	             "During the actual trials, you will have a 3-second time limit to respond.</p><p>The next trial will proceed shortly after the ending of the previous one.",
-	             "Your answer and score on any trial will have no effect on the correct answers to subsequent trials.</p><p>The correct answers have already been decided.",
+	             "During the actual trials, you will have a 3-second time limit to respond.</p><p>Each trial will proceed shortly after the ending of the previous one.",
+	             "Your performance on any trial will have no effect on the correct answers to subsequent trials.</p><p>The correct answers have already been decided.",
 	             "This completes the tutorial. Hit the button when you are ready to proceed. The trials will start immediately and cannot be paused.</p><p>Good luck!"],
 	  step : 0,
 	  
@@ -198,6 +198,79 @@ function make_slides(f) {
 	        "time" : rTime
 	      });
 	  }
+  });
+
+  slides.elicit_prevalence = slide({
+    name: "elicit_prevalence",
+
+    // present : _.shuffle(_.range(numTrials)),
+    present : _.range(exp.numTrials),
+    //this gets run only at the beginning of the block
+    present_handle : function(stim_num) {
+      this.startTime = Date.now();
+
+      $(".err").hide();
+      $("#text_response").val('')
+
+      this.stim = exp.stims[stim_num]; // allstims should be randomized, or stim_num should be
+      this.trialNum = stim_num;
+
+      //  the following commands work only because there are "3 lists" of stimuli, and there are 3 exp.stimtypes (also 3 exp.deteminers)
+      this.determiner = exp.determiner[this.stim.list] // exp.determiner already randomized, grab which stimtype corresponds to list #_this.stim
+      this.stimtype = exp.stimtype[this.stim.list]; // exp.stimtype already randomized, grab which stimtype corresponds to list #_this.stim
+
+
+      //this.question = ["catch1","catch2","catch3","prevalence"]
+      
+
+      var query_prompt = "If you were to play the same game many more times, what percentage of times do you think the marble would be in the LEFT container?\n";
+
+      if (this.determiner=='generic'){
+        var evidence_prompt = utils.upperCaseFirst(this.stim.category) + " have " + this.stim.color + " " + this.stim.part + ".\n";
+      }
+      else{
+        var evidence_prompt = utils.upperCaseFirst(this.determiner) + " " + this.stim.category +" have " + this.stim.color + " " + this.stim.part + ".\n";
+      }
+
+      if (this.stimtype == 'danger'){
+        evidence_prompt+=this.stim.danger +"\n No other animals on this island have this kind of " + this.stim.part
+      }
+
+      if (this.stimtype == 'irrelevant'){
+        evidence_prompt+=this.stim.irrelevant +"\n Other animals on this island also have this kind of " + this.stim.part
+      }
+
+      $(".evidence").html(evidence_prompt);
+      $(".query").html(query_prompt);
+
+       // this.init_radiios();
+       // exp.sliderPost = null; //erase current slider value
+    },
+
+    button : function() {
+      response = $("#text_response").val();
+      if (!(response<=100 && response>=0 && response!='')) {
+        $(".err").show();
+      } else {
+        this.rt = Date.now() - this.startTime;
+        this.log_responses();
+
+        /* use _stream.apply(this); if and only if there is
+        "present" data. (and only *after* responses are logged) */
+        _stream.apply(this);
+
+      }
+
+    },
+
+        log_responses : function() {
+      exp.data_trials.push({
+        "trial_type" : "elicit_prevalence",
+        "response" : $("#text_response").val(),
+        "rt":this.rt,
+        "question": this.question
+      });
+    }
   });
 
   slides.single_trial = slide({
