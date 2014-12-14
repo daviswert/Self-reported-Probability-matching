@@ -61,7 +61,7 @@ function make_slides(f) {
 	  present : ["Correct!",
 	             "Now, let's pretend that we know the marble is in container P. Which container holds the marble?",
 	             "Correct!",
-	             "During the actual trials, you will have a 3-second time limit to respond.</p><p>Each trial will proceed shortly after the ending of the previous one.",
+	             "During the actual trials, you will have a 2-second time limit to respond.</p><p>Each trial will proceed shortly after the ending of the previous one.</p><p>There are 100 trials total.",
 	             "Your performance on any trial will have no effect on the correct answers to subsequent trials.</p><p>The correct answers have already been decided.",
 	             "This completes the tutorial. Hit the button when you are ready to proceed. The trials will start immediately and cannot be paused.</p><p>Good luck!"],
 	  step : 0,
@@ -104,19 +104,21 @@ function make_slides(f) {
   });
   
   var ntrials = 10;
-  var bias = .8; //Level of bias toward one side or the other, expressed as a decimal > 0.5
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: ntrials,
 	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
-	  timelimit: 5000,
+	  //Time limits, for the first choice and then for all subsequent
+	  timelimit: 4000,
+	  realLimit: 2000,
 	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
 	  startTime: 0,
 	  
 	  start : function() {
+		  console.log("Timelimit " + this.timelimit);
 		  $(".err").hide();
 		  var sample = [];
-		  var nbiased = Math.floor(bias*ntrials);
+		  var nbiased = Math.floor(exp.bias*ntrials);
 		  for(var i = 0; i < nbiased; i++) 
 			  sample.push(exp.condition == "Leftbias"?{"answer": 0}:{"answer": 1});
 		  for(var i = 0; i < ntrials-nbiased; i++) 
@@ -128,25 +130,24 @@ function make_slides(f) {
 
 	  present_handle : function(stim) {
 	      this.stim = stim;
-	      $(".status").html("Your score is "+exp.score+"/"+ntrials);
+	      $(".status").html("Your score is "+exp.score);
 	      $(".result").html(" ");
 	      $(".Pmarble").hide();
 	      $(".Qmarble").hide();
 	      if(!this.count) {
 	    	  this.disp = 1;
 	    	  $(".procbutton").show();
-		      $(".prompt").html("You're all done with this portion of the experiment. Hit the button to proceed.");
+		      $(".prompt").html("This completes the guessing game. Hit the button to proceed.");
 	      }
 	      var current = this.count;
 	      this.startTime = Date.now();
 	      window.setTimeout(function(){_s.timeout(current);},this.timelimit);
 	  },
 
-
 	  check : function(val) {
 		  var rTime = Date.now()-this.startTime;
 		  var choice = 81-val;
-		  if(this.count == ntrials) this.timelimit = 3000;
+		  if(this.count == ntrials) this.timelimit = this.realLimit;
 		  if(!this.disp) {
 			  this.disp = 1;
 			  if(choice == this.stim.answer) {
@@ -158,19 +159,18 @@ function make_slides(f) {
 				  $(".result").html("Incorrect");
 			  }
 			  this.showmarble();
-			  window.setTimeout(this.proceed,1500);
+			  window.setTimeout(this.proceed,1000);
 		  }
 	  },
-
 	  
 	  timeout : function(current) {
 		  if(this.count && !this.disp && current==this.count) {
 			  this.disp = 1;
-			  if(this.count == ntrials) this.timelimit = 3000;
+			  if(this.count == ntrials) this.timelimit = this.realLimit;
 			  $(".result").html("You did not answer within the time limit.");
-			  this.log_responses(-1,-1,3000);
+			  this.log_responses(-1,-1,this.timelimit);
 			  this.showmarble();
-			  window.setTimeout(this.proceed,1500);
+			  window.setTimeout(this.proceed,1000);
 		  }
 	  },
 	  
@@ -202,75 +202,58 @@ function make_slides(f) {
 
   slides.elicit_prevalence = slide({
     name: "elicit_prevalence",
-
-    // present : _.shuffle(_.range(numTrials)),
-    present : _.range(exp.numTrials),
+    type : ["catch1","catch2","catch3","prevalence"],
+    answer_type : [" boxes",
+                   " times",
+                   " trials",
+                   " %"],
+    answer_length_constraint : [2,2,4,3],
+    question : ["How many boxes were present on-screen while you were playing the game?",
+                "Before the actual game began, the tutorial asked you twice to guess which box held the marble. How many times did you get it right?",
+                "How many different trials did the game consist of?",
+                "If you were to play the same game many more times, what percentage of times do you think the marble would be in the LEFT container?\n"],
+    present : _.range(4), //acts as a forloop counter which is trackable by the progress bar
+    
     //this gets run only at the beginning of the block
-    present_handle : function(stim_num) {
+    present_handle : function(stim) {
       this.startTime = Date.now();
-
+      this.stim = stim; // Since the other methods need this value
       $(".err").hide();
-      $("#text_response").val('')
-
-      this.stim = exp.stims[stim_num]; // allstims should be randomized, or stim_num should be
-      this.trialNum = stim_num;
-
-      //  the following commands work only because there are "3 lists" of stimuli, and there are 3 exp.stimtypes (also 3 exp.deteminers)
-      this.determiner = exp.determiner[this.stim.list] // exp.determiner already randomized, grab which stimtype corresponds to list #_this.stim
-      this.stimtype = exp.stimtype[this.stim.list]; // exp.stimtype already randomized, grab which stimtype corresponds to list #_this.stim
-
-
-      //this.question = ["catch1","catch2","catch3","prevalence"]
-      
-
-      var query_prompt = "If you were to play the same game many more times, what percentage of times do you think the marble would be in the LEFT container?\n";
-
-      if (this.determiner=='generic'){
-        var evidence_prompt = utils.upperCaseFirst(this.stim.category) + " have " + this.stim.color + " " + this.stim.part + ".\n";
-      }
-      else{
-        var evidence_prompt = utils.upperCaseFirst(this.determiner) + " " + this.stim.category +" have " + this.stim.color + " " + this.stim.part + ".\n";
-      }
-
-      if (this.stimtype == 'danger'){
-        evidence_prompt+=this.stim.danger +"\n No other animals on this island have this kind of " + this.stim.part
-      }
-
-      if (this.stimtype == 'irrelevant'){
-        evidence_prompt+=this.stim.irrelevant +"\n Other animals on this island also have this kind of " + this.stim.part
-      }
-
-      $(".evidence").html(evidence_prompt);
-      $(".query").html(query_prompt);
-
-       // this.init_radiios();
-       // exp.sliderPost = null; //erase current slider value
+      $("#text_response").val('');
+      length = this.answer_length_constraint[this.stim];
+      this.maxval = Math.pow(10,length-1);
+      $(".err").html("Please enter a number between 0-" + this.maxval);
+      $("#text_response").prop('maxlength', length);
+      $(".query").html(this.question[stim]);
+      $("#unit").html(this.answer_type[stim]);
     },
 
     button : function() {
       response = $("#text_response").val();
-      if (!(response<=100 && response>=0 && response!='')) {
+      if (!(response<=this.maxval && response>=0 && response!='')) {
         $(".err").show();
       } else {
         this.rt = Date.now() - this.startTime;
         this.log_responses();
-
-        /* use _stream.apply(this); if and only if there is
-        "present" data. (and only *after* responses are logged) */
         _stream.apply(this);
-
       }
-
     },
 
-        log_responses : function() {
+    log_responses : function() {
       exp.data_trials.push({
         "trial_type" : "elicit_prevalence",
+        "prompt_type" : this.type[this.stim],
         "response" : $("#text_response").val(),
         "rt":this.rt,
-        "question": this.question
       });
     }
+  });
+  
+  slides.post_instructions = slide({
+	name : "post_instructions",
+	button : function() {
+	  exp.go(); //use exp.go() if and only if there is no "present" data.
+	}
   });
 
   slides.single_trial = slide({
@@ -432,6 +415,7 @@ function make_slides(f) {
           "catch_trials" : exp.catch_trials,
           "system" : exp.system,
           "condition" : exp.condition,
+          "bias" : exp.bias,
           "subject_information" : exp.subj_data,
           "time_in_minutes" : (Date.now() - exp.startT)/60000,
           "times_left" : exp.timesleft
@@ -447,6 +431,7 @@ function make_slides(f) {
 function init() {
   exp.catch_trials = [];
   exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
+  exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
   exp.score = 0;
   exp.timesleft = 0;
   exp.system = {
@@ -458,7 +443,7 @@ function init() {
       screenUW: exp.width
     };
   //blocks of the experiment:
-  exp.structure=["i0", "instructions", "practice1", "practice2", "multi_trial", "single_trial", 'subj_info', 'thanks']; //"one_slider", "multi_slider", 'subj_info', 'thanks'];
+  exp.structure=["i0", "instructions", "practice1", "practice2", "multi_trial", "post_instructions", "elicit_prevalence", 'subj_info', 'thanks']; //"one_slider", "multi_slider", 'subj_info', 'thanks'];
 
   //Define section bounds for the secondary progress bar
   exp.secEnd=[-1,3,4,exp.structure.length-1]; //The indices in exp.structure of the end slide of each section

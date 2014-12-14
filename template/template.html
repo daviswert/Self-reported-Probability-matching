@@ -49,7 +49,7 @@
 
   <div class="slide" id="instructions">
     <h3>Instructions</h3>
-    <p>This HIT consists of a game, followed by a questionnaire about that game.</p>
+    <p>This HIT consists of a 100-trial guessing game, followed by a questionnaire about that game.</p>
     <p>Hit the button below to begin a tutorial which will teach you how to play.</p>
     <button onclick="_s.button()">Continue</button>
   </div>
@@ -58,19 +58,19 @@
     <h3>Tutorial</h3>
     <p class="prompt"></p>
     <button class="button" onclick="_s.button()">Continue</button>
-    <img src="../_shared/images/Q.png" id="QContainer"></img>
-    <img src="../_shared/images/marblemaybe.png" class="Qmarble" hidden></img>
-    <img src="../_shared/images/P.png" id="PContainer"></img>
-    <img src="../_shared/images/marblemaybe.png" class="Pmarble" hidden></img>
+    <img src="images/Q.png" id="QContainer"></img>
+    <img src="images/redmarblemaybe.png" class="Qmarble" hidden></img>
+    <img src="images/P.png" id="PContainer"></img>
+    <img src="images/redmarblemaybe.png" class="Pmarble" hidden></img>
   </div>
   
   <div class="slide" id="practice2">
     <p class="prompt"></p>
     <button onclick="_s.button()" class="button" hidden>Continue</button>
-    <img src="../_shared/images/Q.png" id="QContainer"></img>
-    <img src="../_shared/images/marble.png" class="Qmarble"></img>
-    <img src="../_shared/images/P.png" id="PContainer"></img>
-    <img src="../_shared/images/marble.png" class="Pmarble"></img>
+    <img src="images/Q.png" id="QContainer"></img>
+    <img src="images/redmarble.png" class="Qmarble"></img>
+    <img src="images/P.png" id="PContainer"></img>
+    <img src="images/redmarble.png" class="Pmarble"></img>
   </div>
   
   <div class="slide" id="multi_trial">
@@ -78,19 +78,24 @@
     <p class="status">b</p>
     <p class="result">c</p>
     <button hidden class="procbutton" onclick="_s.button()">Proceed</button>
-    <img src="../_shared/images/Q.png" id="QContainer"></img>
-    <img src="../_shared/images/marble.png" class="Qmarble"></img>
-    <img src="../_shared/images/P.png" id="PContainer"></img>
-    <img src="../_shared/images/marble.png" class="Pmarble"></img>
+    <img src="images/Q.png" id="QContainer"></img>
+    <img src="images/redmarble.png" class="Qmarble"></img>
+    <img src="images/P.png" id="PContainer"></img>
+    <img src="images/redmarble.png" class="Pmarble"></img>
   </div>
 
   <div class="slide" id="elicit_prevalence">
-    <p class="evidence"></p>
     <p class="query"></p>
-
-    <input type="text" id="text_response" maxlength="3"></input>
+    <input type="text" id="text_response" maxlength="3" size="6"></input>
+    <t id="unit"></t><p/>
     <button onclick="_s.button()">Continue</button>
-    <p class="err">Please enter a number between 0-100.</p>
+    <p class="err"></p>
+  </div>
+
+  <div class="slide" id="post_instructions">
+    <p>Congratulations! You've finished the game portion of the HIT. All that remains is a short questionnaire about how you played it.</p>
+    <p>Hit the button below to begin the questionnaire.</p>
+    <button onclick="_s.button()">Continue</button>
   </div>
 
   <div class="slide" id="single_trial">
@@ -178,16 +183,16 @@
   <div class="progress">
     <span>Total progress:</span>
     <div class="bar-wrapper">
-      <div class="bar" width="0%">
+      <div class="bar" id="bar" width="0%">
       </div>
     </div>
   </div>
   
   
-  <div class="secprogress">
+  <div class="progress" id="secprogress">
     <span>Section progress:</span>
     <div class="bar-wrapper">
-      <div class="secbar" width="0%">
+      <div class="bar" id="secbar" width="0%">
       </div>
     </div>
   </div>
