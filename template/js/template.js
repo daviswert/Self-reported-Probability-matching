@@ -103,7 +103,7 @@ function make_slides(f) {
 	  }
   });
   
-  var ntrials = 10;
+  var ntrials = 100;
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: ntrials,
@@ -401,6 +401,7 @@ function make_slides(f) {
         age : $("#age").val(),
         gender : $("#gender").val(),
         education : $("#education").val(),
+        strategy : $("#strategy").val(),
         comments : $("#comments").val(),
       };
       exp.go(); //use exp.go() if and only if there is no "present" data.
