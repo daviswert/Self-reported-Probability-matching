@@ -1,0 +1,48 @@
+.slider {
+  /* default is width 400 and margin 10 */
+	width: 400;
+	margin: 10px;
+}
+
+/*Sectional slider bar*/
+/*Resets the position inherited from "progress" class in html*/
+#secprogress{
+  top: 40px;
+}
+
+/*Bandit Graphics*/
+#PContainer {
+	position:absolute;
+	left: 50%;
+	top: 400px;
+    width: 200px;
+    margin: 10px;
+    transform: translate(50px);
+}
+
+#QContainer {
+	position: absolute;
+	right: 50%;
+	top: 400px;
+    width: 200px;
+    margin: 10px;
+    transform: translate(-50px);
+}
+
+.Pmarble {
+	position: absolute;
+	top: 310px;
+	width: 100px;
+	margin: 10px;
+	left: 50%;
+	transform: translate(100px);
+}
+
+.Qmarble {
+	position: absolute;
+	top: 310px;
+	width: 100px;
+	margin: 10px;
+	right: 50%;
+	transform: translate(-100px);
+}
