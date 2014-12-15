@@ -1,0 +1,16 @@
+.slide {
+
+	/*font-family: "Trebuchet MS", Helvetica, sans-serif;*/
+/*	font-family: Century Gothic, sans-serif;
+*/	font-family: ‘Palatino Linotype’, ‘Book Antiqua’, Palatino, serif;
+    font-size: 20px;
+}
+
+#legal {
+	font-family: ‘Times New Roman’, Times, serif;
+	font-size: 0.8em;
+	text-align: justify;
+	padding-left: 60px;
+	padding-right: 60px;
+
+}
