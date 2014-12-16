@@ -19,8 +19,11 @@ function make_slides(f) {
 
   slides.instructions = slide({
     name : "instructions",
-    button : function() {
-      exp.go(); //use exp.go() if and only if there is no "present" data.
+    start : function() {
+      $("#num-trials").html(exp.ntrials);  
+    },
+    button: function (){
+      exp.go(); 
     }
   });
   
@@ -61,7 +64,7 @@ function make_slides(f) {
 	  present : ["Correct!",
 	             "Now, let's pretend that we know the marble is in container P. Which container holds the marble?",
 	             "Correct!",
-	             "During the actual trials, you will have a 2-second time limit to respond.</p><p>Each trial will proceed shortly after the ending of the previous one.</p><p>There are 100 trials total.",
+	             "During the actual trials, you will have a 2-second time limit to respond.</p><p>Each trial will proceed shortly after the ending of the previous one.</p><p>There are "+exp.ntrials+" trials total.",
 	             "Your performance on any trial will have no effect on where the marble will be on subsequent trials.</p><p>The marble's positions have been decided in advance.",
 	             "This completes the tutorial. Hit the button when you are ready to proceed. The trials will start immediately and cannot be paused.</p><p>Good luck!"],
 	  step : 0,
@@ -103,25 +106,24 @@ function make_slides(f) {
 	  }
   });
   
-  var ntrials = 100;
   slides.multi_trial = slide({
 	  name: "multi_trial",
-	  count: ntrials,
+	  count: exp.ntrials,
 	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
 	  //Time limits, for the first choice and then for all subsequent
 	  timelimit: 4000,
 	  realLimit: 2000,
-	  present: _.range(ntrials+1), //Dummy values for progress bar calculations
+	  present: _.range(exp.ntrials+1), //Dummy values for progress bar calculations
 	  startTime: 0,
 	  
 	  start : function() {
 		  console.log("Timelimit " + this.timelimit);
 		  $(".err").hide();
 		  var sample = [];
-		  var nbiased = Math.floor(exp.bias*ntrials);
+		  var nbiased = Math.floor(exp.bias*exp.ntrials);
 		  for(var i = 0; i < nbiased; i++) 
 			  sample.push(exp.condition == "Leftbias"?{"answer": 0}:{"answer": 1});
-		  for(var i = 0; i < ntrials-nbiased; i++) 
+		  for(var i = 0; i < exp.ntrials-nbiased; i++) 
 			  sample.push(exp.condition == "Leftbias"?{"answer": 1}:{"answer": 0});
 		  this.present = _.shuffle(sample);
 		  this.present.push("dummy");
@@ -147,7 +149,7 @@ function make_slides(f) {
 	  check : function(val) {
 		  var rTime = Date.now()-this.startTime;
 		  var choice = 81-val;
-		  if(this.count == ntrials) this.timelimit = this.realLimit;
+		  if(this.count == exp.ntrials) this.timelimit = this.realLimit;
 		  if(!this.disp) {
 			  this.disp = 1;
 			  if(choice == this.stim.answer) {
@@ -166,7 +168,7 @@ function make_slides(f) {
 	  timeout : function(current) {
 		  if(this.count && !this.disp && current==this.count) {
 			  this.disp = 1;
-			  if(this.count == ntrials) this.timelimit = this.realLimit;
+			  if(this.count == exp.ntrials) this.timelimit = this.realLimit;
 			  $(".result").html("You did not answer within the time limit.");
 			  this.log_responses(-1,-1,this.timelimit);
 			  this.showmarble();
@@ -433,6 +435,7 @@ function init() {
   exp.catch_trials = [];
   exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
   exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
+  exp.ntrials = 50;
   exp.score = 0;
   exp.timesleft = 0;
   exp.system = {
