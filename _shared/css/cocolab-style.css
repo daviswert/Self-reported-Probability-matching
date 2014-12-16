@@ -117,7 +117,7 @@ textarea {
   position: absolute;
   right: 50%;
   top: 10px;
-  transform: translate(150px);
+  margin-right: -150px;
 }
 
 .progress span{
