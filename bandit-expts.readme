@@ -1,0 +1,7 @@
+bandit experiments
+
+1. 	between-subjects: probabilities = [60,80]
+	between-subjects: dominant side = [L,R]
+	exp.n_trials = 50;
+	max time / trial = 2000ms;
+	delay / trial = ...?
