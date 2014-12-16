@@ -192,13 +192,13 @@ function make_slides(f) {
 	  log_responses : function(answer, result, rTime) {
 	      exp.data_trials.push({
 	        "trial_type" : "multi_trial",
+	        "trial" : exp.ntrials + 1 - this.count,
 	        "response" : answer,
-            "prompt_type" : "bandit",
 	        "result" : result,
 	        "rt" : rTime,
 	        "bias_%" : (exp.bias*100),
 	        "bias_direction" : exp.condition,
-	        "trial" : exp.ntrials + 1 - this.count
+	        "Lbias_%" : exp.leftbias
 	      });
 	  }
   });
@@ -245,10 +245,12 @@ function make_slides(f) {
     log_responses : function() {
       exp.data_trials.push({
         "trial_type" : "elicit_prevalence",
-        "prompt_type" : this.type[this.stim],
+        "trial" : this.type[this.stim],
         "response" : $("#text_response").val(),
-        "rt":this.rt,
-        "bias_%":exp.leftbias;
+        "rt" : rTime,
+        "bias_%" : (exp.bias*100),
+        "bias_direction" : exp.condition,
+        "Lbias_%" : exp.leftbias
       });
     }
   });
