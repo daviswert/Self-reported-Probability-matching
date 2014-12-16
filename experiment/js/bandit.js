@@ -196,8 +196,9 @@ function make_slides(f) {
 	      exp.data_trials.push({
 	        "trial_type" : "multi_trial",
 	        "response" : answer,
+          "prompt_type" : "bandit",
 	        "result" : result,
-	        "time" : rTime
+	        "rt" : rTime
 	      });
 	  }
   });
