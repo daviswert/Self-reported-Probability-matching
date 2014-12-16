@@ -119,9 +119,9 @@ function make_slides(f) {
 		  var sample = [];
 		  var nbiased = Math.floor(exp.bias*exp.ntrials);
 		  for(var i = 0; i < nbiased; i++) 
-			  sample.push(exp.condition == "Leftbias"?{"answer": 0}:{"answer": 1});
+			  sample.push(exp.condition == "L"?{"answer": 0}:{"answer": 1});
 		  for(var i = 0; i < exp.ntrials-nbiased; i++) 
-			  sample.push(exp.condition == "Leftbias"?{"answer": 1}:{"answer": 0});
+			  sample.push(exp.condition == "L"?{"answer": 1}:{"answer": 0});
 		  this.present = _.shuffle(sample);
 		  this.present.push("dummy");
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
@@ -146,15 +146,16 @@ function make_slides(f) {
 	  check : function(val) {
 		  var rTime = Date.now()-this.startTime;
 		  var choice = 81-val;
+		  var pick = choice==0 ? "L" : "R";
 		  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
 		  if(!this.disp) {
 			  this.disp = 1;
 			  if(choice == this.stim.answer) {
-				  this.log_responses(choice,1,rTime);
+				  this.log_responses(pick,1,rTime);
 				  $(".result").html("Correct");
 				  exp.score++;
 			  } else {
-				  this.log_responses(choice,0,rTime);
+				  this.log_responses(pick,0,rTime);
 				  $(".result").html("Incorrect");
 			  }
 			  this.showmarble();
@@ -167,7 +168,7 @@ function make_slides(f) {
 			  this.disp = 1;
 			  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
 			  $(".result").html("You did not answer within the time limit.");
-			  this.log_responses(-1,-1,this.timelimit);
+			  this.log_responses("timeout",-1,this.timelimit);
 			  this.showmarble();
 			  window.setTimeout(this.proceed,exp.displimit);
 		  }
@@ -185,7 +186,6 @@ function make_slides(f) {
 	  },
 
 	  button : function() {
-	      this.log_responses(exp.score, "Final");
 	      exp.go();
 	  },
 	  
@@ -193,9 +193,12 @@ function make_slides(f) {
 	      exp.data_trials.push({
 	        "trial_type" : "multi_trial",
 	        "response" : answer,
-          "prompt_type" : "bandit",
+            "prompt_type" : "bandit",
 	        "result" : result,
-	        "rt" : rTime
+	        "rt" : rTime,
+	        "bias_%" : (exp.bias*100),
+	        "bias_direction" : exp.condition,
+	        "trial" : exp.ntrials + 1 - this.count
 	      });
 	  }
   });
@@ -245,6 +248,7 @@ function make_slides(f) {
         "prompt_type" : this.type[this.stim],
         "response" : $("#text_response").val(),
         "rt":this.rt,
+        "bias_%":exp.leftbias;
       });
     }
   });
@@ -415,8 +419,6 @@ function make_slides(f) {
           "trials" : exp.data_trials,
           "catch_trials" : exp.catch_trials,
           "system" : exp.system,
-          "condition" : exp.condition,
-          "bias" : exp.bias,
           "subject_information" : exp.subj_data,
           "time_in_minutes" : (Date.now() - exp.startT)/60000,
           "times_left" : exp.timesleft
@@ -431,8 +433,9 @@ function make_slides(f) {
 /// init ///
 function init() {
   exp.catch_trials = [];
-  exp.condition = _.sample(["Leftbias", "Rightbias"]); //can randomize between subject conditions here
+  exp.condition = _.sample(["L", "R"]); //can randomize between subject conditions here
   exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
+  exp.leftbias = exp.condition=="L" ? exp.bias : Math.ceil((1-exp.bias)*10)/10;
   exp.ntrials = 50;
   exp.timelimit = 2000;
   exp.displimit = 1000;
