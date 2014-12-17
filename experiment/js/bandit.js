@@ -247,7 +247,7 @@ function make_slides(f) {
         "trial_type" : "elicit_prevalence",
         "trial" : this.type[this.stim],
         "response" : $("#text_response").val(),
-        "rt" : rTime,
+        "rt" : this.rt,
         "bias_%" : (exp.bias*100),
         "bias_direction" : exp.condition,
         "Lbias_%" : exp.leftbias
