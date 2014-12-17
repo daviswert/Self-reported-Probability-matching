@@ -1,0 +1,39 @@
+---
+title: "bandit1"
+author: "mht"
+date: "December 15, 2014"
+output: html_document
+---
+
+Herein lies the analysis for the first experiment of the bandit elicitation paradigm.
+
+
+
+```{r}
+setwd("~/Documents/research/depmeas/bandit/turk/bandit1")
+df<-read.table('bandit1_anonymized-trials.tsv',header=T)
+
+
+ggplot(data=subset(df,trial_type=='multi_trial'),aes(x=rt))+
+  geom_histogram(alpha=0.6)
+
+df0<-ddply(subset(df,trial_type=='multi_trial'), 
+      .(workerid), summarise, 
+      relative_prop = cumsum(result)/to.n(trial), trial=to.n(trial),
+      relative_left = cumsum(response=='L')/to.n(trial), 
+      Lbias = factor(Lbias_.),
+      biasDir = factor(bias_direction))
+
+ggplot(df0, aes(x=trial,y=relative_prop,group=workerid,color=workerid))+
+  geom_line(size=1)+
+  ylab("relative proportion correct")+
+  facet_wrap(~Lbias)+
+  guides(color=F)
+
+ggplot(df0, aes(x=trial, y=relative_left, group=workerid,color=workerid))+
+  geom_line(size=1)+
+  ylab("relative L responses")+
+  facet_wrap(~Lbias)+
+  guides(color=F)
+
+```
