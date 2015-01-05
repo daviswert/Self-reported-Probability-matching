@@ -31,7 +31,7 @@ function make_slides(f) {
   slides.practice1 = slide({
 	  name : "practice1",
 	  present : ["For each trial, you will see these two containers, labeled 'Q' and 'P'.",
-	             "One of these containers holds a marble. Your job is to guess which one, by typing the corresponding key on your keyboard. If you think the marble is in container Q, type 'q'. If you think it's in P, type 'p'.</p><p>If you are correct, you get a point.",
+	             "One of these containers holds a marble. Your job is to guess which one, by typing the corresponding key on your keyboard.</p><p>If you think the marble is in container Q, type 'q'. If you think it's in P, type 'p'.</p><p>If you are correct, you get a point.",
 	             "Let's try it now. Hit 'q' or 'p' to guess which container holds the marble."],
 	  step : 0,
 	  
@@ -210,7 +210,7 @@ function make_slides(f) {
                    " times",
                    " trials",
                    " %"],
-    answer_length_constraint : [2,2,4,3],
+    answer_length_constraint : [2,2,3,3],
     question : ["How many boxes were present on-screen while you were playing the game?",
                 "Before the actual game began, the tutorial asked you twice to guess which box held the marble. How many times did you get it right?",
                 "How many trials did the game consist of?",
@@ -262,7 +262,7 @@ function make_slides(f) {
 	}
   });
 
-  slides.single_trial = slide({
+  /*slides.single_trial = slide({
     name: "single_trial",
     start: function() {
       $(".err").hide();
@@ -287,7 +287,7 @@ function make_slides(f) {
 
     /* trial information for this block
      (the variable 'stim' will change between each of these values,
-      and for each of these, present_handle will be run.) */
+      and for each of these, present_handle will be run.) 
     present : [
       {subject: "dog", object: "ball"},
       {subject: "cat", object: "windowsill"},
@@ -313,7 +313,7 @@ function make_slides(f) {
         this.log_responses();
 
         /* use _stream.apply(this); if and only if there is
-        "present" data. (and only *after* responses are logged) */
+        "present" data. (and only *after* responses are logged) 
         _stream.apply(this);
       }
     },
@@ -394,7 +394,7 @@ function make_slides(f) {
         });
       }
     },
-  });
+  });*/
 
   slides.subj_info =  slide({
     name : "subj_info",
@@ -403,7 +403,7 @@ function make_slides(f) {
       exp.subj_data = {
         language : $("#language").val(),
         enjoyment : $("#enjoyment").val(),
-        asses : $('input[name="assess"]:checked').val(),
+        assess : $('input[name="assess"]:checked').val(),
         age : $("#age").val(),
         gender : $("#gender").val(),
         education : $("#education").val(),
@@ -437,7 +437,7 @@ function init() {
   exp.catch_trials = [];
   exp.condition = _.sample(["L", "R"]); //can randomize between subject conditions here
   exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
-  exp.leftbias = exp.condition=="L" ? exp.bias : Math.ceil((1-exp.bias)*10)/10;
+  exp.leftbias = exp.condition=="L" ? exp.bias : Math.ceil((1-exp.bias)*10)/10; //A rounding function to take care of floating-point subtraction errors
   exp.ntrials = 50;
   exp.timelimit = 2000;
   exp.displimit = 1000;
