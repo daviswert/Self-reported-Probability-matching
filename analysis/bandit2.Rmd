@@ -6,11 +6,8 @@ output: html_document
 ---
 
 ```{r, echo=FALSE, message=FALSE}
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(plyr)
 library(MASS)
+source("C:/Users/Davis/Downloads/Ranalysis-master/Ranalysis-master/useful.R")
 ```
 
 Herein lies the analysis for the first experiment of the bandit elicitation paradigm.
@@ -19,65 +16,154 @@ Herein lies the analysis for the first experiment of the bandit elicitation para
 Initial variables and declarations
 =
 ```{r}
-setwd("../data/")
-df<-read.table('bandit1-trials.tsv',header=T)
+#setwd("../data/")
+setwd("D:/Git/Self-reported-Probability-matching/data")
+df<-read.table('bandit1-trials.tsv',header=T,stringsAsFactors=FALSE)
+
+#trimming the df table to exclude the prevalence answers
 trim<-subset(df, trial_type=="multi_trial")
-df8<-subset(trim, bias==80)
-df6<-subset(trim, bias==60)
-subj_aggregate <- ddply(trim, c("workerid"), summarise, bias=sample(bias,1), bias_direction=sample(bias_direction,1), rt=mean(rt), acc=mean(result))
+
+#new column with timeouts registered as Incorrect
+trim$rs_timeOutWrong<-trim$result
+trim[which(trim$result==-1),]$rs_timeOutWrong<-0
+
+#new column indicating correct bias-matching
+trim$bias_match<-ifelse(trim$response==trim$bias_direction,1,0)
+
+#aggregating over subjects - currently not used
+subj_aggr <- ddply(trim, .(workerid), summarise, 
+                        bias=sample(bias,1), 
+                        bias_direction=sample(bias_direction,1), 
+                        rt=mean(rt), 
+                        rs_acc=mean(rs_timeOutWrong),
+                        match_acc=mean(bias_match))
+
+#forming cumulative metrics for each subject
+score_aggr<-ddply(trim, .(workerid), mutate, 
+      relative_prop = cumsum(bias_match)/to.n(trial),
+      trial=to.n(trial),
+      relative_left = cumsum(response=='L')/to.n(trial), 
+      bias = factor(bias),
+      Lbias = factor(Lbias),
+      biasDir = factor(bias_direction))
+
+#forming cumulative metrics for each trial
+trial_aggr<-ddply(trim, .(trial,bias), summarise,
+      no_correct = sum(bias_match),
+      no_total = length(unique(workerid)))
+trial_aggr$trial_no<-to.n(trial_aggr$trial)
+trial_aggr$subj_proportion<-trial_aggr$no_correct/trial_aggr$no_total
+trial_aggr<-trial_aggr[order(trial_aggr$bias,trial_aggr$trial_no),]
+trial_aggr<-mutate(group_by(trial_aggr,bias), aggr_acc=cumsum(subj_proportion)/trial_no)
+
 ```
 
-Some basic tables:
+
+Missing Trials?
 =
 ```{r}
-#Effect of bias level on performance
-ddply(trim, c("bias"), summarise, N = length(unique(workerid)), rt = mean(rt), acc = mean(result))
-#Bias level has no significant effect on reaction times
-attach(subj_aggregate)
-summary(aov(rt ~ bias))
+#This is odd. Two of the subjects didn't go through all 50 trials...
+subset(ddply(df, c("workerid"), summarise, N = length(rt)), N!=54)
+#This isn't NA screening... we're really just missing 8 trials. 
+subset(ddply(trim, c("result"), summarise, N=length(rt)))
+```
+
+
+Reaction Time
+=
+```{r}
+#Reaction time distribution for multitrial
+qplot(data=df[which(df$trial_type=="multi_trial"),],x=rt/1000,geom='histogram')+
+  facet_wrap(~bias)+
+  ylab("Count")+
+  xlab("Reaction Time (seconds)")
+
+#Reaction time distribution for prevalence
+qplot(data=df[which(df$trial_type=="elicit_prevalence"),],x=rt/1000,geom='histogram')+
+  facet_wrap(~bias)+
+  ylab("Count")+
+  xlab("Reaction Time (seconds)")
+```
+
+
+Bias Direction:
+=
+```{r, message=FALSE}
 
 #Effect of bias direction on performance, across levels. 
-ddply(trim, c("bias", "bias_direction"), summarise, N = length(unique(workerid)), rt = mean(rt), acc = mean(result))
-#Effect of bias direction is not significant for accuracy...
-summary(aov(acc ~ bias_direction))
-#...or reaction time
-summary(aov(rt ~ bias_direction))
+bias_dir<-ddply(trim, .(bias, bias_direction), summarise, 
+      N = length(unique(workerid)), 
+      rt = mean(rt), 
+      rs_acc = mean(result), 
+      match_acc = mean(bias_match))
+#bias_direction$group<-paste0(bias_direction$bias,bias_direction$bias_direction,collapse=NULL)
+ggplot(data=bias_dir, aes(factor(bias),match_acc,fill=factor(bias_direction)))+
+  geom_bar(stat='identity', position='dodge')+
+  ylim(0,1)+
+  ylab("Bias Matching Rate")+
+  xlab("Bias Level")
 
-#This is odd. Two of the subjects didn't go through all 50 trials... is this NA correction?
-subset(ddply(df, c("workerid"), summarise, N = length(rt)), N!=54)
+#Mean subject left-preference over all trials
+ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid,color=workerid))+
+  geom_line(size=1)+
+  ylab("relative L responses")+
+  facet_wrap(~Lbias)+
+  guides(color=F)
+
+#Number of Right vs Left responses, since that inequality seems kind of glaring
+rs_dir<-ddply(trim, c("response"), summarise,
+              N=length(rt))
+qplot(response,N,data=rs_dir,geom='bar',stat='identity')
 
 ```
 
-Correlations:
+
+Bias Level:
 =
 ```{r}
-#Trial # with rt
-#rt with result
-#trial # with result
+#Mean subject accuracy over all trials
+ggplot(score_aggr, aes(x=trial,y=relative_prop,group=workerid,color=workerid))+
+  geom_line(size=1)+
+  ylab("relative proportion matched")+
+  facet_wrap(~Lbias)+
+  guides(color=F)
+
+#What % of subjects match their bias during each trial
+ggplot(data=trial_aggr,aes(x=trial_no,y=subj_proportion))+
+  geom_line(size=1.5)+
+  facet_wrap(~bias)
+
+#Mean accuracy aggregated over all subjects
+ggplot(trial_aggr, aes(x=trial_no,y=aggr_acc))+
+  geom_line(size=1)+
+  ylim(0,1)+
+  ylab("Bias Accuracy")+
+  facet_wrap(~bias)
 ```
 
-Basic plots:
+
+Prevalence Processing:
 =
 ```{r}
- ggplot(data=trim,aes(x=rt))+geom_histogram(alpha=0.6)
- 
-# df0<-ddply(subset(df,trial_type=='multi_trial'), 
-#       .(workerid), summarise, 
-#       relative_prop = cumsum(result)/to.n(trial), trial=to.n(trial),
-#       relative_left = cumsum(response=='L')/to.n(trial), 
-#       Lbias = factor(Lbias_.),
-#       biasDir = factor(bias_direction))
-# 
-# ggplot(df0, aes(x=trial,y=relative_prop,group=workerid,color=workerid))+
-#   geom_line(size=1)+
-#   ylab("relative proportion correct")+
-#   facet_wrap(~Lbias)+
-#   guides(color=F)
-# 
-# ggplot(df0, aes(x=trial, y=relative_left, group=workerid,color=workerid))+
-#   geom_line(size=1)+
-#   ylab("relative L responses")+
-#   facet_wrap(~Lbias)+
-#   guides(color=F)
+prev<-df[which(df$trial_type=="elicit_prevalence"), c('workerid', 'rt', 'Lbias', 'trial', 'response')]
+score1<-prev[which(prev$trial=="catch1"),]$response=="2"
+score2<-prev[which(prev$trial=="catch2"),]$response=="2"
+score3<-prev[which(prev$trial=="catch3"),]$response=="50"
+subj_prev <- prev[which(prev$trial=="prevalence"), c('workerid', 'Lbias', 'response')]
+subj_prev$catch_score <- score1+score2+score3
+subj_prev$off_by <- as.numeric(subj_prev$response) - 100*subj_prev$Lbias
+subj_prev$trial_acc <- subj_aggr$match_acc
+
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  ylim(-75,75)+
+  geom_smooth(method=lm)
+
+ggplot(subj_prev, aes(x=factor(catch_score), y=off_by, fill=catch_score))+
+  geom_boxplot()+
+  ylim(-75,75)+
+  guides(fill=FALSE)
 
 ```
+
+
