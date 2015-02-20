@@ -7,6 +7,7 @@ output: html_document
 
 ```{r, echo=FALSE, message=FALSE}
 library(MASS)
+library(lme4)
 source("C:/Users/Davis/Downloads/Ranalysis-master/Ranalysis-master/useful.R")
 ```
 
@@ -16,8 +17,8 @@ Herein lies the analysis for the first experiment of the bandit elicitation para
 Initial variables and declarations
 =
 ```{r}
-#setwd("../data/")
-setwd("D:/Git/Self-reported-Probability-matching/data")
+setwd("../data/")
+#setwd("D:/Git/Self-reported-Probability-matching/data")
 df<-read.table('bandit1-trials.tsv',header=T,stringsAsFactors=FALSE)
 
 #trimming the df table to exclude the prevalence answers
@@ -85,24 +86,56 @@ qplot(data=df[which(df$trial_type=="elicit_prevalence"),], x=rt/1000, geom='hist
   xlab("Reaction Time (seconds)")
 
 #rts for matching vs nonmatching
-ggplot(trim, aes(x=factor(bias_match), y=rt/1000, fill = factor(bias_match)))+
+trim$bias_match <- factor(trim$bias_match)
+ggplot(trim, aes(x=bias_match, y=rt/1000, fill = bias_match))+
   geom_boxplot()+
   guides(fill=FALSE)
+
+ggplot(trim, aes(x=rt/1000, fill = bias_match))+
+  geom_histogram()+
+  guides(fill=FALSE)+
+  facet_grid(bias~bias_match)
+
+
 #Seems that subjs deliberate for longer when they choose not to bias-match
 rs<-glm(data=trim, bias_match ~ rt, family='binomial')
 summary(rs)
+
+trim$bias<-factor(trim$bias)
+# additive model: predicting RT from bias_match and bias_condition
+rs<-lm(data=trim, rt ~ bias_match + bias)
+
+# interactive model, 
+rs<-lm(data=trim, rt ~ bias_match * bias)
+summary(rs)
+contrasts(trim$bias)
+
+
+# interactive, mixed linear regression
+rs<-lmer(data=trim, rt ~ bias_match*bias + (1 + bias_match | workerid))
+contrasts(trim$bias_match)
+summary(rs)
+
 
 #Avg rt plotted against match accuracy. In general, subjs who deliberate match less, regardless of bias level!
 ggplot(subj_aggr, aes(x=rt/1000, y=match_acc))+
   geom_point(shape=1)+
   facet_wrap(~bias)+
   geom_smooth(method=lm)
-#Stats for 60-bias - SEEMS OFF, ASK HENRY
-rs<-lm(data=subj_aggr[which(subj_aggr$bias=="60"),], rt ~ match_acc)
+
+
+
+# medium negative correlation between RT & Match_accuracy
+## higher accuracy --> shorter reaction RT
+subj_aggr %>%
+  group_by(bias) %>%
+  summarise(correlation = cor(rt,match_acc))
+
+
+rs<-lm(data=subj_aggr, rt ~ match_acc+bias)
+rs<-lm(data=subj_aggr, rt ~ match_acc*bias)
 summary(rs)
-#stats for 80-bias - SEEMS OFF, ASK HENRY
-rs<-lm(data=subj_aggr[which(subj_aggr$bias=="80"),], rt ~ match_acc)
-summary(rs)
+
   
 ```
 
@@ -112,13 +145,18 @@ Bias Direction:
 ```{r, message=FALSE}
 
 #Effect of bias direction on performance, across levels. 
+trim$bias_direction <- factor(trim$bias_direction)
+trim$bias_match <- to.n(trim$bias_match)
 bias_dir<-ddply(trim, .(bias, bias_direction), summarise, 
       N = length(unique(workerid)), 
       rt = mean(rt), 
       rs_acc = mean(result), 
-      match_acc = mean(bias_match))
-ggplot(data=bias_dir, aes(factor(bias), match_acc, fill=factor(bias_direction)))+
-  geom_bar(stat='identity', position='dodge')+
+      match_acc = mean(bias_match),
+      sterr = sem(bias_match))
+
+ggplot(data=bias_dir, aes(x=bias, y=match_acc, fill=bias_direction))+
+  geom_bar(stat='identity', position=position_dodge(0.5), width=0.5)+
+  geom_errorbar(aes(ymax = match_acc + 2*sterr, ymin= match_acc-2*sterr), position=position_dodge(0.5),width=0.3)+
   ylim(0,1)+
   ylab("Bias Matching Rate")+
   xlab("Bias Level")
@@ -145,7 +183,7 @@ Bias Level:
 ggplot(score_aggr, aes(x=trial, y=relative_prop, group=workerid, color=workerid))+
   geom_line(size=1)+
   ylab("relative proportion matched")+
-  facet_wrap(~Lbias)+
+  facet_wrap(~bias)+
   guides(color=F)
 
 #Num of subjs correctly matching during each trial
@@ -157,7 +195,7 @@ ggplot(data=trial_aggr,aes(x=trial_no,y=subj_proportion))+
 ggplot(trial_aggr, aes(x=trial_no,y=aggr_acc))+
   geom_line(size=1)+
   ylim(0,1)+
-  ylab("Bias Accuracy")+
+  ylab("Match Accuracy")+
   facet_wrap(~bias)
 
 #Final subj mean accuracy by bias
@@ -170,7 +208,6 @@ ggplot(subj_aggr, aes(x=factor(bias), y=match_acc, fill=factor(bias)))+
 
 
 Prevalence Processing: 
-=
 
 To sum it up early: performance accuracy has little to do with prevalence accuracy
 
