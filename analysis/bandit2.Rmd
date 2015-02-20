@@ -73,16 +73,37 @@ Reaction Time
 =
 ```{r}
 #Reaction time distribution for multitrial
-qplot(data=df[which(df$trial_type=="multi_trial"),],x=rt/1000,geom='histogram')+
+qplot(data=df[which(df$trial_type=="multi_trial"),], x=rt/1000, geom='histogram')+
   facet_wrap(~bias)+
   ylab("Count")+
   xlab("Reaction Time (seconds)")
 
 #Reaction time distribution for prevalence
-qplot(data=df[which(df$trial_type=="elicit_prevalence"),],x=rt/1000,geom='histogram')+
+qplot(data=df[which(df$trial_type=="elicit_prevalence"),], x=rt/1000, geom='histogram')+
   facet_wrap(~bias)+
   ylab("Count")+
   xlab("Reaction Time (seconds)")
+
+#rts for matching vs nonmatching
+ggplot(trim, aes(x=factor(bias_match), y=rt/1000, fill = factor(bias_match)))+
+  geom_boxplot()+
+  guides(fill=FALSE)
+#Seems that subjs deliberate for longer when they choose not to bias-match
+rs<-glm(data=trim, bias_match ~ rt, family='binomial')
+summary(rs)
+
+#Avg rt plotted against match accuracy. In general, subjs who deliberate match less, regardless of bias level!
+ggplot(subj_aggr, aes(x=rt/1000, y=match_acc))+
+  geom_point(shape=1)+
+  facet_wrap(~bias)+
+  geom_smooth(method=lm)
+#Stats for 60-bias - SEEMS OFF, ASK HENRY
+rs<-lm(data=subj_aggr[which(subj_aggr$bias=="60"),], rt ~ match_acc)
+summary(rs)
+#stats for 80-bias - SEEMS OFF, ASK HENRY
+rs<-lm(data=subj_aggr[which(subj_aggr$bias=="80"),], rt ~ match_acc)
+summary(rs)
+  
 ```
 
 
@@ -96,15 +117,14 @@ bias_dir<-ddply(trim, .(bias, bias_direction), summarise,
       rt = mean(rt), 
       rs_acc = mean(result), 
       match_acc = mean(bias_match))
-#bias_direction$group<-paste0(bias_direction$bias,bias_direction$bias_direction,collapse=NULL)
-ggplot(data=bias_dir, aes(factor(bias),match_acc,fill=factor(bias_direction)))+
+ggplot(data=bias_dir, aes(factor(bias), match_acc, fill=factor(bias_direction)))+
   geom_bar(stat='identity', position='dodge')+
   ylim(0,1)+
   ylab("Bias Matching Rate")+
   xlab("Bias Level")
 
 #Mean subject left-preference over all trials
-ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid,color=workerid))+
+ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid, color=workerid))+
   geom_line(size=1)+
   ylab("relative L responses")+
   facet_wrap(~Lbias)+
@@ -113,7 +133,7 @@ ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid,color=workerid))
 #Number of Right vs Left responses, since that inequality seems kind of glaring
 rs_dir<-ddply(trim, c("response"), summarise,
               N=length(rt))
-qplot(response,N,data=rs_dir,geom='bar',stat='identity')
+qplot(response, N, data=rs_dir, geom='bar', stat='identity')
 
 ```
 
@@ -122,47 +142,65 @@ Bias Level:
 =
 ```{r}
 #Mean subject accuracy over all trials
-ggplot(score_aggr, aes(x=trial,y=relative_prop,group=workerid,color=workerid))+
+ggplot(score_aggr, aes(x=trial, y=relative_prop, group=workerid, color=workerid))+
   geom_line(size=1)+
   ylab("relative proportion matched")+
   facet_wrap(~Lbias)+
   guides(color=F)
 
-#What % of subjects match their bias during each trial
+#Num of subjs correctly matching during each trial
 ggplot(data=trial_aggr,aes(x=trial_no,y=subj_proportion))+
   geom_line(size=1.5)+
   facet_wrap(~bias)
 
-#Mean accuracy aggregated over all subjects
+#Mean accuracy aggregated over all subjects by trial
 ggplot(trial_aggr, aes(x=trial_no,y=aggr_acc))+
   geom_line(size=1)+
   ylim(0,1)+
   ylab("Bias Accuracy")+
   facet_wrap(~bias)
+
+#Final subj mean accuracy by bias
+ggplot(subj_aggr, aes(x=factor(bias), y=match_acc, fill=factor(bias)))+
+  geom_boxplot()+
+  guides(fill=FALSE)
+
+#HOW TO ANALYZE THIS CLOSENESS? i.e. ASSIGN A NULL HYPOTHESIS OF 60/80?
 ```
 
 
-Prevalence Processing:
+Prevalence Processing: 
 =
+
+To sum it up early: performance accuracy has little to do with prevalence accuracy
+
 ```{r}
-prev<-df[which(df$trial_type=="elicit_prevalence"), c('workerid', 'rt', 'Lbias', 'trial', 'response')]
+prev<-df[which(df$trial_type=="elicit_prevalence"), c('workerid', 'rt', 'Lbias', 'bias', 'trial', 'response')]
 score1<-prev[which(prev$trial=="catch1"),]$response=="2"
 score2<-prev[which(prev$trial=="catch2"),]$response=="2"
 score3<-prev[which(prev$trial=="catch3"),]$response=="50"
-subj_prev <- prev[which(prev$trial=="prevalence"), c('workerid', 'Lbias', 'response')]
+subj_prev <- prev[which(prev$trial=="prevalence"), c('workerid', 'Lbias', 'bias', 'response')]
 subj_prev$catch_score <- score1+score2+score3
-subj_prev$off_by <- as.numeric(subj_prev$response) - 100*subj_prev$Lbias
+subj_prev$off_by <- abs(as.numeric(subj_prev$response) - 100*subj_prev$Lbias)
 subj_prev$trial_acc <- subj_aggr$match_acc
 
+#Match accuracy as a measure of reporting accuracy. Oh dear. 
 ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
   geom_point(shape=1)+
-  ylim(-75,75)+
   geom_smooth(method=lm)
 
-ggplot(subj_prev, aes(x=factor(catch_score), y=off_by, fill=catch_score))+
-  geom_boxplot()+
-  ylim(-75,75)+
-  guides(fill=FALSE)
+#Even within catch score groups, little to no relation
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  facet_wrap(~catch_score, scales='free')
+
+#Same thing for within bias groups
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  facet_wrap(~bias)
+
 
 ```
 
