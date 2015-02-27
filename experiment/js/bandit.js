@@ -41,8 +41,10 @@ function make_slides(f) {
 	  },
 	  
 	  check : function(val) {
-		  tutchoice = 81-val;
-		  _stream.apply(_s);
+		  if(this.step == 2) {
+			  tutchoice = 81-val;
+			  _stream.apply(_s);
+		  }
 	  },
 	  
 	  button : function() {
@@ -87,17 +89,20 @@ function make_slides(f) {
 	  
 	  proceed : function() {
 		  this.step++;
+		  console.log("Just reached step " + this.step)
 		  $('.Pmarble').hide();
 		  $('.Qmarble').hide();
 		  _stream.apply(_s);
 	  },
 	  
 	  check : function(val) {
-		  if(81-val == 0) $('.prompt').html("That is incorrect. The marble is in container P. Which container holds the marble?");
-		  else {
-			  $('.Pmarble').show();
-			  _stream.apply(_s);
-			  window.setTimeout(function(){_s.proceed();},exp.displimit);
+		  if(this.step == 1) {
+			  if(81-val == 0) $('.prompt').html("That is incorrect. The marble is in container P. Which container holds the marble?");
+			  else {
+				  $('.Pmarble').show();
+				  _stream.apply(_s);
+				  window.setTimeout(function(){_s.proceed();},exp.displimit);
+			  }
 		  }
 	  },
 	  
@@ -109,6 +114,7 @@ function make_slides(f) {
   slides.multi_trial = slide({
 	  name: "multi_trial",
 	  count: exp.ntrials,
+	  current: 0,
 	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
 	  timelimit: exp.timelimit+2000,
 	  present: _.range(exp.ntrials+1), //Dummy values for progress bar calculations
@@ -138,28 +144,31 @@ function make_slides(f) {
 	    	  $(".procbutton").show();
 		      $(".prompt").html("This completes the guessing game. Hit the button to proceed.");
 	      }
-	      var current = this.count;
+	      this.current = this.count; //Not superfluous - the check method needs this to be separate so that it can update with the stim
+	      var current = this.count; //Not superfluous - the timeout method needs this to be separate so that it doesn't update with the stim
 	      this.startTime = Date.now();
 	      window.setTimeout(function(){_s.timeout(current);},this.timelimit);
 	  },
 
 	  check : function(val) {
-		  var rTime = Date.now()-this.startTime;
-		  var choice = 81-val;
-		  var pick = choice==0 ? "L" : "R";
-		  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
-		  if(!this.disp) {
-			  this.disp = 1;
-			  if(choice == this.stim.answer) {
-				  this.log_responses(pick,1,rTime);
-				  $(".result").html("Correct");
-				  exp.score++;
-			  } else {
-				  this.log_responses(pick,0,rTime);
-				  $(".result").html("Incorrect");
+		  if(this.count && this.current==this.count) {
+			  var rTime = Date.now()-this.startTime;
+			  var choice = 81-val;
+			  var pick = choice==0 ? "L" : "R";
+			  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
+			  if(!this.disp) {
+				  this.disp = 1;
+				  if(choice == this.stim.answer) {
+					  this.log_responses(pick,1,rTime);
+					  $(".result").html("Correct");
+					  exp.score++;
+				  } else {
+					  this.log_responses(pick,0,rTime);
+					  $(".result").html("Incorrect");
+				  }
+				  this.showmarble();
+				  window.setTimeout(this.proceed,exp.displimit);
 			  }
-			  this.showmarble();
-			  window.setTimeout(this.proceed,exp.displimit);
 		  }
 	  },
 	  
