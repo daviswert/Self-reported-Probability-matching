@@ -89,7 +89,6 @@ function make_slides(f) {
 	  
 	  proceed : function() {
 		  this.step++;
-		  console.log("Just reached step " + this.step)
 		  $('.Pmarble').hide();
 		  $('.Qmarble').hide();
 		  _stream.apply(_s);
@@ -129,7 +128,6 @@ function make_slides(f) {
 		  for(var i = 0; i < exp.ntrials-nbiased; i++) 
 			  sample.push(exp.condition == "L"?{"answer": 1}:{"answer": 0});
 		  this.present = _.shuffle(sample);
-		  this.present.push("dummy");
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
 
