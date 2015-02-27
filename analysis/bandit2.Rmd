@@ -17,8 +17,8 @@ Herein lies the analysis for the first experiment of the bandit elicitation para
 Initial variables and declarations
 =
 ```{r}
-setwd("../data/")
-#setwd("D:/Git/Self-reported-Probability-matching/data")
+#setwd("../data/")
+setwd("D:/Git/Self-reported-Probability-matching/data")
 df<-read.table('bandit1-trials.tsv',header=T,stringsAsFactors=FALSE)
 
 #trimming the df table to exclude the prevalence answers
@@ -31,7 +31,7 @@ trim[which(trim$result==-1),]$rs_timeOutWrong<-0
 #new column indicating correct bias-matching
 trim$bias_match<-ifelse(trim$response==trim$bias_direction,1,0)
 
-#aggregating over subjects - currently not used
+#aggregating over subjects
 subj_aggr <- ddply(trim, .(workerid), summarise, 
                         bias=sample(bias,1), 
                         bias_direction=sample(bias_direction,1), 
@@ -89,8 +89,13 @@ qplot(data=df[which(df$trial_type=="elicit_prevalence"),], x=rt/1000, geom='hist
 trim$bias_match <- factor(trim$bias_match)
 ggplot(trim, aes(x=bias_match, y=rt/1000, fill = bias_match))+
   geom_boxplot()+
-  guides(fill=FALSE)
+  guides(fill=FALSE)+
+  xlab(" ")+
+  ylab("RT (seconds)")+
+  ggtitle("Distribution of RTs for Matching vs Nonmatching Responses")+
+  scale_x_discrete(labels=c("Nonmatch","Match"))
 
+#Distribution of reaction times over bias levels and response types
 ggplot(trim, aes(x=rt/1000, fill = bias_match))+
   geom_histogram()+
   guides(fill=FALSE)+
@@ -101,28 +106,25 @@ ggplot(trim, aes(x=rt/1000, fill = bias_match))+
 rs<-glm(data=trim, bias_match ~ rt, family='binomial')
 summary(rs)
 
-trim$bias<-factor(trim$bias)
 # additive model: predicting RT from bias_match and bias_condition
+trim$bias<-factor(trim$bias)
 rs<-lm(data=trim, rt ~ bias_match + bias)
 
 # interactive model, 
 rs<-lm(data=trim, rt ~ bias_match * bias)
 summary(rs)
-contrasts(trim$bias)
-
 
 # interactive, mixed linear regression
 rs<-lmer(data=trim, rt ~ bias_match*bias + (1 + bias_match | workerid))
-contrasts(trim$bias_match)
 summary(rs)
 
 
-#Avg rt plotted against match accuracy. In general, subjs who deliberate match less, regardless of bias level!
+#Subjects' avg rt plotted against total match accuracy. In general, subjs who deliberate match less, regardless of bias level!
 ggplot(subj_aggr, aes(x=rt/1000, y=match_acc))+
   geom_point(shape=1)+
   facet_wrap(~bias)+
-  geom_smooth(method=lm)
-
+  geom_smooth(method=lm)+
+  ylab("Matching Rate")
 
 
 # medium negative correlation between RT & Match_accuracy
@@ -131,7 +133,7 @@ subj_aggr %>%
   group_by(bias) %>%
   summarise(correlation = cor(rt,match_acc))
 
-
+# additive model significant, interactive model nearly so. More data would easily help here. 
 rs<-lm(data=subj_aggr, rt ~ match_acc+bias)
 rs<-lm(data=subj_aggr, rt ~ match_acc*bias)
 summary(rs)
@@ -154,6 +156,7 @@ bias_dir<-ddply(trim, .(bias, bias_direction), summarise,
       match_acc = mean(bias_match),
       sterr = sem(bias_match))
 
+# Matching rates across biases and directions
 ggplot(data=bias_dir, aes(x=bias, y=match_acc, fill=bias_direction))+
   geom_bar(stat='identity', position=position_dodge(0.5), width=0.5)+
   geom_errorbar(aes(ymax = match_acc + 2*sterr, ymin= match_acc-2*sterr), position=position_dodge(0.5),width=0.3)+
@@ -162,6 +165,7 @@ ggplot(data=bias_dir, aes(x=bias, y=match_acc, fill=bias_direction))+
   xlab("Bias Level")
 
 #Mean subject left-preference over all trials
+score_aggr$workerid <- factor(score_aggr$workerid)
 ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid, color=workerid))+
   geom_line(size=1)+
   ylab("relative L responses")+
@@ -169,6 +173,7 @@ ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid, color=workerid)
   guides(color=F)
 
 #Number of Right vs Left responses, since that inequality seems kind of glaring
+# Possible TODO: add in expected number of left and right responses, since we can calculate this explicitly from bias and bias direction
 rs_dir<-ddply(trim, c("response"), summarise,
               N=length(rt))
 qplot(response, N, data=rs_dir, geom='bar', stat='identity')
@@ -182,25 +187,28 @@ Bias Level:
 #Mean subject accuracy over all trials
 ggplot(score_aggr, aes(x=trial, y=relative_prop, group=workerid, color=workerid))+
   geom_line(size=1)+
-  ylab("relative proportion matched")+
+  ylab("Cumulative Match Accuracy")+
   facet_wrap(~bias)+
   guides(color=F)
 
 #Num of subjs correctly matching during each trial
 ggplot(data=trial_aggr,aes(x=trial_no,y=subj_proportion))+
   geom_line(size=1.5)+
+  ylab("Proportion of Subjects Matching")+
   facet_wrap(~bias)
 
-#Mean accuracy aggregated over all subjects by trial
+#Mean cumulative accuracy aggregated over all subjects by trial
 ggplot(trial_aggr, aes(x=trial_no,y=aggr_acc))+
   geom_line(size=1)+
   ylim(0,1)+
-  ylab("Match Accuracy")+
+  ylab("Mean Cumulative Match Accuracy")+
   facet_wrap(~bias)
 
 #Final subj mean accuracy by bias
 ggplot(subj_aggr, aes(x=factor(bias), y=match_acc, fill=factor(bias)))+
   geom_boxplot()+
+  xlab("Bias")+
+  ylab("Subject's Total Match Accuracy")+
   guides(fill=FALSE)
 
 #HOW TO ANALYZE THIS CLOSENESS? i.e. ASSIGN A NULL HYPOTHESIS OF 60/80?
@@ -224,19 +232,25 @@ subj_prev$trial_acc <- subj_aggr$match_acc
 #Match accuracy as a measure of reporting accuracy. Oh dear. 
 ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
   geom_point(shape=1)+
-  geom_smooth(method=lm)
+  geom_smooth(method=lm)+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
 
 #Even within catch score groups, little to no relation
 ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
   geom_point(shape=1)+
   geom_smooth(method=lm)+
-  facet_wrap(~catch_score, scales='free')
+  facet_wrap(~catch_score, scales='free')+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
 
 #Same thing for within bias groups
 ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
   geom_point(shape=1)+
   geom_smooth(method=lm)+
-  facet_wrap(~bias)
+  facet_wrap(~bias)+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
 
 
 ```
