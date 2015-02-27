@@ -15,38 +15,66 @@ Herein lies the analysis for the first experiment of the bandit elicitation para
 
 
 Initial variables and declarations
-=
-```{r}
+```{r init}
 #setwd("../data/")
-setwd("D:/Git/Self-reported-Probability-matching/data")
-df<-read.table('bandit1-trials.tsv',header=T,stringsAsFactors=FALSE)
+#setwd("D:/Git/Self-reported-Probability-matching/data")
+d<-read.table('../data/bandit1-trials.tsv',header=T)#,stringsAsFactors=F)
 
-#trimming the df table to exclude the prevalence answers
-trim<-subset(df, trial_type=="multi_trial")
+df <- d %>%
+  filter(trial_type=='multi_trial') # same as subset
 
+# after filtering, need to refactor factors, because they will have empty levels
+# compare e.g.
+levels(df$response)
+# with
+levels(factor(df$response))
+
+df$response <- factor(df$response)
+
+# since bias is our between subjects variable, let's make it a factor
+df$bias<- factor(df$bias)
+
+
+str(df)
+# note: workerid is int, should be factor
+df$workerid<-factor(df$workerid)
+
+# trial should be int
+levels(factor(df$trial))
+df$trial <- to.n(df$trial)
+
+str(df)
+```
+
+Mutate and summarise data
+
+```{r mutate}
 #new column with timeouts registered as Incorrect
-trim$rs_timeOutWrong<-trim$result
-trim[which(trim$result==-1),]$rs_timeOutWrong<-0
+df$rs_timeOutWrong<-df$result
+df[which(df$result==-1),]$rs_timeOutWrong<-0
 
 #new column indicating correct bias-matching
-trim$bias_match<-ifelse(trim$response==trim$bias_direction,1,0)
 
-#aggregating over subjects
-subj_aggr <- ddply(trim, .(workerid), summarise, 
-                        bias=sample(bias,1), 
-                        bias_direction=sample(bias_direction,1), 
-                        rt=mean(rt), 
-                        rs_acc=mean(rs_timeOutWrong),
-                        match_acc=mean(bias_match))
+df <- df %>% 
+  rowwise() %>%
+  mutate(bias.match=ifelse(response==bias_direction,1,0))
+
+# ungroup so we can group by other things later
+df <- df %>% ungroup()
+
+subj.stats<- df %>%
+  group_by(workerid) %>%
+  summarise(bias=sample(bias,1), 
+            bias_direction=sample(bias_direction,1), 
+            rt.mean=mean(rt), 
+            acc.outcome=mean(rs_timeOutWrong),
+            acc.match=mean(bias.match))
 
 #forming cumulative metrics for each subject
-score_aggr<-ddply(trim, .(workerid), mutate, 
-      relative_prop = cumsum(bias_match)/to.n(trial),
-      trial=to.n(trial),
-      relative_left = cumsum(response=='L')/to.n(trial), 
-      bias = factor(bias),
-      Lbias = factor(Lbias),
-      biasDir = factor(bias_direction))
+df <- df %>%
+  group_by(workerid) %>%
+  mutate(cumul.match = cumsum(bias.match)/trial,
+         cumul.left = cumsum(response=='L')/trial)
 
 #forming cumulative metrics for each trial
 trial_aggr<-ddply(trim, .(trial,bias), summarise,
@@ -59,14 +87,105 @@ trial_aggr<-mutate(group_by(trial_aggr,bias), aggr_acc=cumsum(subj_proportion)/t
 
 ```
 
+## Henry's analysis
+
+
+We collected 25 subjects worth of data so we could focus on individial subjects
+```{r probmatch}
+View(df)
+
+ggplot(df, aes(x=trial, y=cumul.match, color=bias))+
+  geom_line()+
+  geom_hline(aes(yintercept=to.n(bias)/100))+
+  geom_hline(yintercept=0.5, linetype=2)+
+  facet_wrap(~workerid)
+```
+
+Thoughts: From an inference-by-eye perspective, it's much easier to discern what's going on in the 80% condition than the 60% condition. In the 80% condition, all but 1 participant ended with a cumulative bias above 50%.
+
+Here, we are comparing with the expected value of cumulative matching over the course of the experiment (60%, 80%). The history of evidence for each participant is going to be different. It would be nice to track the actual curves (to replace the solid black lines).
+
+```{r history}
+df <- df %>% 
+  group_by(workerid) %>%
+  mutate(cumul.history = cumsum(bias.match*result)/trial)
+
+ggplot(df, aes(x=trial, color=bias))+
+  geom_line(aes(y=cumul.match))+
+  geom_line(aes(y=cumul.history),linetype=2)+
+  geom_hline(aes(yintercept=to.n(bias)/100))+
+  geom_hline(yintercept=0.5, linetype=2)+
+  facet_wrap(~workerid)
+
+```
+
+Hm. Well if cumul.history is the proper way of calculating the history seen by the participant, then something seems off in the coding of the experiment. 
+
+```{r historyVsMatching}
+df.final <- df %>% filter(trial==50)
+ggplot(df.final, aes(x=cumul.history, y = cumul.match, color=bias))+
+  geom_point()
+
+with(df.final, cor(cumul.history,cumul.match))
+
+# or for all trials?
+
+ggplot(df, aes(x=cumul.history, y = cumul.match, color=bias))+
+  geom_point()
+
+with(df, cor(cumul.history,cumul.match))
+
+# split by quartile of experiment
+## prediction: people should be getting closer to matching throughout the course of the experiment
+qcut <- function(x){
+  return(findInterval(x, quantile(x, seq(0, 1, 0.26), all.inside = T)))}
+
+df<-df %>%
+  mutate(quartile = factor(qcut(trial)))
+
+ggplot(df, aes(x=cumul.history, y = cumul.match, color=bias))+
+  geom_point()+
+  facet_wrap(~quartile)
+
+df %>% group_by(quartile) %>%
+  summarise(cor = cor(cumul.history,cumul.match))
+```
+
+Seems the correspondence with amtching is pretty well established after the first 15 trials.
+
+Okay, if the analysis so far is correct, we have a bug somewhere in the script such that the bias is not being implemented accurately. Fortunately, it doesn't matter too much for our purposes, since we just care if their explicit judgment corresponds with their implicit probability.
+
+```{r explicitjudge}
+f <- d %>%
+  filter(trial_type!="multi_trial")
+
+f <- d %>%
+  filter(trial=="prevalence") %>%
+  dplyr::select(workerid, response) %>%## need dplyr:: here because conflicts with MASS::select
+  rename(free.response = response)
+
+f$workerid<-factor(f$workerid)
+
+# want to join df.final (which has the cumulative information corresponding to the entire experiement) with this explicit judgment df
+
+f0 <- left_join(df.final, f, by='workerid')
+
+## not quite right because we have to factor in L vs. R bias... 
+
+```
+
 
 Missing Trials?
 =
 ```{r}
 #This is odd. Two of the subjects didn't go through all 50 trials...
-subset(ddply(df, c("workerid"), summarise, N = length(rt)), N!=54)
+df %>% ungroup() %>%
+  group_by(workerid) %>%
+  summarise(N = length(rt)) %>%
+  filter(N!=50)
+
 #This isn't NA screening... we're really just missing 8 trials. 
-subset(ddply(trim, c("result"), summarise, N=length(rt)))
+subset(ddply(df, c("result"), summarise, N=length(rt)))
 ```
 
 
