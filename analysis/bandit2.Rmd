@@ -94,7 +94,7 @@ We collected 25 subjects worth of data so we could focus on individial subjects
 ```{r probmatch}
 View(df)
 
-ggplot(df, aes(x=trial, y=cumul.match, color=bias))+
+ggplot(df, aes(x=trial, y=cumul.match, color=bias_direction))+
   geom_line()+
   geom_hline(aes(yintercept=to.n(bias)/100))+
   geom_hline(yintercept=0.5, linetype=2)+
@@ -103,14 +103,15 @@ ggplot(df, aes(x=trial, y=cumul.match, color=bias))+
 
 Thoughts: From an inference-by-eye perspective, it's much easier to discern what's going on in the 80% condition than the 60% condition. In the 80% condition, all but 1 participant ended with a cumulative bias above 50%.
 
-Here, we are comparing with the expected value of cumulative matching over the course of the experiment (60%, 80%). The history of evidence for each participant is going to be different. It would be nice to track the actual curves (to replace the solid black lines).
+Here, we are comparing with the expected value of cumulative matching over the course of the experiment (i.e. 60%, 80%). The history of evidence for each participant is going to be different. It would be nice to track the actual curves (to replace the solid black lines).
 
 ```{r history}
+
 df <- df %>% 
   group_by(workerid) %>%
-  mutate(cumul.history = cumsum(bias.match*result)/trial)
+  mutate(cumul.history = cumsum(1-abs(bias.match-result))/trial)
 
-ggplot(df, aes(x=trial, color=bias))+
+ggplot(df, aes(x=trial, color=bias_direction))+
   geom_line(aes(y=cumul.match))+
   geom_line(aes(y=cumul.history),linetype=2)+
   geom_hline(aes(yintercept=to.n(bias)/100))+
@@ -123,10 +124,12 @@ Hm. Well if cumul.history is the proper way of calculating the history seen by t
 
 ```{r historyVsMatching}
 df.final <- df %>% filter(trial==50)
-ggplot(df.final, aes(x=cumul.history, y = cumul.match, color=bias))+
+ggplot(df.final, aes(x=cumul.history, y = cumul.match, color=bias_direction))+
   geom_point()
 
-with(df.final, cor(cumul.history,cumul.match))
+df.final %>%
+  group_by(bias_direction) %>%
+  summarise(c=cor(cumul.history,cumul.match))
 
 # or for all trials?
 
@@ -153,7 +156,7 @@ df %>% group_by(quartile) %>%
 
 Seems the correspondence with amtching is pretty well established after the first 15 trials.
 
-Okay, if the analysis so far is correct, we have a bug somewhere in the script such that the bias is not being implemented accurately. Fortunately, it doesn't matter too much for our purposes, since we just care if their explicit judgment corresponds with their implicit probability.
+Okay, if the analysis so far is correct, we have a bug somewhere in the script such that the bias is not being implemented accurately (This doesn't seem to be the case overall, just for a few subjects). Fortunately, it doesn't matter too much for our purposes, since we just care if their explicit judgment corresponds with their implicit probability.
 
 ```{r explicitjudge}
 f <- d %>%
@@ -161,16 +164,43 @@ f <- d %>%
 
 f <- d %>%
   filter(trial=="prevalence") %>%
-  dplyr::select(workerid, response) %>%## need dplyr:: here because conflicts with MASS::select
-  rename(free.response = response)
+  dplyr::select(workerid, response, bias_direction, Lbias) %>%
+  rename(free.response=response)## need dplyr:: here because conflicts with MASS::select 
+  
+  ## wtf
+  rowwise() %>%
+  mutate(free.response = if(bias_direction=='L'){response}else{100-response})
 
 f$workerid<-factor(f$workerid)
+f$free.response<-to.n(f$free.response)
+f$Lbias <- to.n(f$Lbias*100)
+
+# what does the raw data look like
+## broken down by bias strentgh
+table(filter(f,Lbias%in%c(40,60))$free.response)
+table(filter(f,Lbias%in%c(20,80))$free.response)
+
+
+f %>%
+group_by(bias_direction) %>%
+summarise(corr = cor(free.response,Lbias),
+          n = length(free.response))
+
+# is it that people just give high numbers?
+qplot(data=f, x=free.response, geom='histogram',binwidth=5, fill=factor(Lbias))+
+  geom_histogram(position=position_dodge())
+#seems like not
+
+ggplot(data=f, aes(x=Lbias, y=free.response, color=bias_direction))+
+  geom_point(position='jitter')
 
 # want to join df.final (which has the cumulative information corresponding to the entire experiement) with this explicit judgment df
 
 f0 <- left_join(df.final, f, by='workerid')
+ggplot(data=f0, aes(x=cumul.match, y = free.response))+
+  facet_wrap(~bias_direction)+
+  geom_point()
 
-## not quite right because we have to factor in L vs. R bias... 
 
 ```
 
