@@ -114,7 +114,7 @@ function make_slides(f) {
 	  name: "multi_trial",
 	  count: exp.ntrials,
 	  current: 0,
-	  disp: 0, //Whether or not the slide is showing a message, as opposed to taking responses
+	  disp: false, //Whether or not the slide is showing a message, as opposed to taking responses
 	  timelimit: exp.timelimit+2000,
 	  present: _.range(exp.ntrials+1), //Dummy values for progress bar calculations
 	  startTime: 0,
@@ -131,6 +131,19 @@ function make_slides(f) {
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
 
+	  //Debugging code - probably safe to delete at this point
+	  /*countAnswers : function() {
+		  num0 = 0;
+		  num1 = 0;
+		  for(var i = 0; i < this.present.length; i++) {
+			  if(this.present[i].answer == 0) num0++;
+			  else num1++;
+		  }
+		  console.log("Zeroes: "+num0);
+		  console.log("Ones: "+num1);
+		  console.log("Total: "+(num0+num1));
+	  },*/
+
 	  present_handle : function(stim) {
 	      this.stim = stim;
 	      $(".status").html("Your score is "+exp.score);
@@ -138,7 +151,7 @@ function make_slides(f) {
 	      $(".Pmarble").hide();
 	      $(".Qmarble").hide();
 	      if(!this.count) {
-	    	  this.disp = 1;
+	    	  this.disp = true;
 	    	  $(".procbutton").show();
 		      $(".prompt").html("This completes the guessing game. Hit the button to proceed.");
 	      }
@@ -153,15 +166,17 @@ function make_slides(f) {
 			  var rTime = Date.now()-this.startTime;
 			  var choice = 81-val;
 			  var pick = choice==0 ? "L" : "R";
+			  var matched = 0;
 			  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
 			  if(!this.disp) {
-				  this.disp = 1;
+				  this.disp = true;
+				  if(choice == (exp.condition=="R" ? 1 : 0)) matched = 1;
 				  if(choice == this.stim.answer) {
-					  this.log_responses(pick,1,rTime);
+					  this.log_responses(pick,1,matched,rTime);
 					  $(".result").html("Correct");
 					  exp.score++;
 				  } else {
-					  this.log_responses(pick,0,rTime);
+					  this.log_responses(pick,0,matched,rTime);
 					  $(".result").html("Incorrect");
 				  }
 				  this.showmarble();
@@ -172,10 +187,10 @@ function make_slides(f) {
 	  
 	  timeout : function(current) {
 		  if(this.count && !this.disp && current==this.count) {
-			  this.disp = 1;
+			  this.disp = true;
 			  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
 			  $(".result").html("You did not answer within the time limit.");
-			  this.log_responses("timeout",-1,this.timelimit);
+			  this.log_responses("timeout",-1,0,this.timelimit);
 			  this.showmarble();
 			  window.setTimeout(this.proceed,exp.displimit);
 		  }
@@ -196,18 +211,28 @@ function make_slides(f) {
 	      exp.go();
 	  },
 	  
-	  log_responses : function(answer, result, rTime) {
+	  log_responses : function(answer, result, matched, rTime) {
 	      exp.data_trials.push({
 	        "trial_type" : "multi_trial",
 	        "trial" : exp.ntrials + 1 - this.count,
 	        "response" : answer,
 	        "result" : result,
+	        "matched" : matched,
 	        "rt" : rTime,
 	        "bias_%" : (exp.bias*100),
 	        "bias_direction" : exp.condition,
 	        "Lbias_%" : exp.leftbias
 	      });
 	  }
+  });
+  
+  slides.post_instructions = slide({
+	name : "post_instructions",
+	button : function() {
+	  exp.go(); //use exp.go() if and only if there is no "present" data.
+	},
+      
+    timeout : function(current){return;}
   });
 
   slides.elicit_prevalence = slide({
@@ -254,19 +279,13 @@ function make_slides(f) {
         "trial_type" : "elicit_prevalence",
         "trial" : this.type[this.stim],
         "response" : $("#text_response").val(),
+        "matched" : 0,
         "rt" : this.rt,
         "bias_%" : (exp.bias*100),
         "bias_direction" : exp.condition,
         "Lbias_%" : exp.leftbias
       });
     }
-  });
-  
-  slides.post_instructions = slide({
-	name : "post_instructions",
-	button : function() {
-	  exp.go(); //use exp.go() if and only if there is no "present" data.
-	}
   });
 
   /*slides.single_trial = slide({
