@@ -124,9 +124,9 @@ function make_slides(f) {
 		  var sample = [];
 		  var nbiased = Math.floor(exp.bias*exp.ntrials);
 		  for(var i = 0; i < nbiased; i++) 
-			  sample.push(exp.condition == "L"?{"answer": 0}:{"answer": 1});
+			  sample.push({"answer": 1});
 		  for(var i = 0; i < exp.ntrials-nbiased; i++) 
-			  sample.push(exp.condition == "L"?{"answer": 1}:{"answer": 0});
+			  sample.push({"answer": 0});
 		  this.present = _.shuffle(sample);
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
@@ -170,7 +170,7 @@ function make_slides(f) {
 			  if(this.count == exp.ntrials) this.timelimit = exp.timelimit;
 			  if(!this.disp) {
 				  this.disp = true;
-				  if(choice == (exp.condition=="R" ? 1 : 0)) matched = 1;
+				  if(choice == 1) matched = 1;
 				  if(choice == this.stim.answer) {
 					  this.log_responses(pick,1,matched,rTime);
 					  $(".result").html("Correct");
@@ -220,8 +220,7 @@ function make_slides(f) {
 	        "matched" : matched,
 	        "rt" : rTime,
 	        "bias_%" : (exp.bias*100),
-	        "bias_direction" : exp.condition,
-	        "Lbias_%" : exp.leftbias
+	        "ntrials" : exp.ntrials
 	      });
 	  }
   });
@@ -232,7 +231,7 @@ function make_slides(f) {
 	  exp.go(); //use exp.go() if and only if there is no "present" data.
 	},
       
-    timeout : function(current){return;}
+    timeout : function(current){return;} //Dummy to prevent console errors - the timeout fn from multi_trial could still be counting even after the slide transitioned away
   });
 
   slides.elicit_prevalence = slide({
@@ -241,12 +240,12 @@ function make_slides(f) {
     answer_type : [" boxes",
                    " times",
                    " trials",
-                   " %"],
+                   " times"],
     answer_length_constraint : [2,2,3,3],
     question : ["How many boxes were present on-screen while you were playing the game?",
                 "Before the actual game began, the tutorial asked you twice to guess which box held the marble. How many times did you get it right?",
                 "How many trials did the game consist of?",
-                "If you were to play the same game many more times, what percentage of times do you think the marble would be in the LEFT container?\n"],
+                "Out of the NTRIAL trials that you saw, how many times was the marble in the <strong>RIGHT</strong>-hand container?\n"],
     present : _.range(4), //acts as a forloop counter which is trackable by the progress bar
     
     //this gets run only at the beginning of the block
@@ -259,7 +258,9 @@ function make_slides(f) {
       this.maxval = Math.pow(10,length-1);
       $(".err").html("Please enter a number between 0-" + this.maxval);
       $("#text_response").prop('maxlength', length);
-      $(".query").html(this.question[stim]);
+      if(stim == 3) {
+    	  $(".query").html(this.question[stim].replace("NTRIAL",exp.ntrials));
+      } else $(".query").html(this.question[stim]);
       $("#unit").html(this.answer_type[stim]);
     },
 
@@ -282,145 +283,12 @@ function make_slides(f) {
         "matched" : 0,
         "rt" : this.rt,
         "bias_%" : (exp.bias*100),
-        "bias_direction" : exp.condition,
-        "Lbias_%" : exp.leftbias
+        "ntrials" : exp.ntrials
       });
-    }
+    }, 
+    
+    timeout : function(current){return;} //Dummy to prevent console errors - the timeout fn from multi_trial could still be counting even after the slide transitioned away
   });
-
-  /*slides.single_trial = slide({
-    name: "single_trial",
-    start: function() {
-      $(".err").hide();
-      $(".display_condition").html("You are in " + exp.condition + ".");
-    },
-    button : function() {
-      response = $("#text_response").val();
-      if (response.length == 0) {
-        $(".err").show();
-      } else {
-        exp.data_trials.push({
-          "trial_type" : "single_trial",
-          "response" : response
-        });
-        exp.go(); //make sure this is at the *end*, after you log your data
-      }
-    },
-  });
-
-  slides.one_slider = slide({
-    name : "one_slider",
-
-    /* trial information for this block
-     (the variable 'stim' will change between each of these values,
-      and for each of these, present_handle will be run.) 
-    present : [
-      {subject: "dog", object: "ball"},
-      {subject: "cat", object: "windowsill"},
-      {subject: "bird", object: "shiny object"},
-    ],
-
-    //this gets run only at the beginning of the block
-    present_handle : function(stim) {
-      $(".err").hide();
-
-      this.stim = stim; //I like to store this information in the slide so I can record it later.
-
-
-      $(".prompt").html(stim.subject + "s like " + stim.object + "s.");
-      this.init_sliders();
-      exp.sliderPost = null; //erase current slider value
-    },
-
-    button : function() {
-      if (exp.sliderPost == null) {
-        $(".err").show();
-      } else {
-        this.log_responses();
-
-        /* use _stream.apply(this); if and only if there is
-        "present" data. (and only *after* responses are logged) 
-        _stream.apply(this);
-      }
-    },
-
-    init_sliders : function() {
-      utils.make_slider("#single_slider", function(event, ui) {
-        exp.sliderPost = ui.value;
-      });
-    },
-
-    log_responses : function() {
-      exp.data_trials.push({
-        "trial_type" : "one_slider",
-        "response" : exp.sliderPost
-      });
-    }
-  });
-
-  slides.multi_slider = slide({
-    name : "multi_slider",
-    present : _.shuffle([
-      {"critter":"Wugs", "property":"fur"},
-      {"critter":"Blicks", "property":"fur"}
-    ]),
-    present_handle : function(stim) {
-      $(".err").hide();
-      this.stim = stim; //FRED: allows you to access stim in helpers
-
-      this.sentence_types = _.shuffle(["generic", "negation", "always", "sometimes", "usually"]);
-      var sentences = {
-        "generic": stim.critter + " have " + stim.property + ".",
-        "negation": stim.critter + " do not have " + stim.property + ".",
-        "always": stim.critter + " always have " + stim.property + ".",
-        "sometimes": stim.critter + " sometimes have " + stim.property + ".",
-        "usually": stim.critter + " usually have " + stim.property + "."
-      };
-
-      this.n_sliders = this.sentence_types.length;
-      $(".slider_row").remove();
-      for (var i=0; i<this.n_sliders; i++) {
-        var sentence_type = this.sentence_types[i];
-        var sentence = sentences[sentence_type];
-        $("#multi_slider_table").append('<tr class="slider_row"><td class="slider_target" id="sentence' + i + '">' + sentence + '</td><td colspan="2"><div id="slider' + i + '" class="slider">-------[ ]--------</div></td></tr>');
-        utils.match_row_height("#multi_slider_table", ".slider_target");
-      }
-
-      this.init_sliders(this.sentence_types);
-      exp.sliderPost = [];
-    },
-
-    button : function() {
-      if (exp.sliderPost.length < this.n_sliders) {
-        $(".err").show();
-      } else {
-        this.log_responses();
-        _stream.apply(this); //use _stream.apply(this); if and only if there is "present" data.
-      }
-    },
-
-    init_sliders : function(sentence_types) {
-      for (var i=0; i<sentence_types.length; i++) {
-        var sentence_type = sentence_types[i];
-        utils.make_slider("#slider" + i, this.make_slider_callback(i));
-      }
-    },
-    make_slider_callback : function(i) {
-      return function(event, ui) {
-        exp.sliderPost[i] = ui.value;
-      };
-    },
-    log_responses : function() {
-      for (var i=0; i<this.sentence_types.length; i++) {
-        var sentence_type = this.sentence_types[i];
-        exp.data_trials.push({
-          "trial_type" : "multi_slider",
-          "sentence_type" : sentence_type,
-          "response" : exp.sliderPost[i]
-        });
-      }
-    },
-  });*/
 
   slides.subj_info =  slide({
     name : "subj_info",
@@ -462,10 +330,8 @@ function make_slides(f) {
 /// init ///
 function init() {
   exp.catch_trials = [];
-  exp.condition = _.sample(["L", "R"]); //can randomize between subject conditions here
   exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
-  exp.leftbias = exp.condition=="L" ? exp.bias : Math.ceil((1-exp.bias)*10)/10; //A rounding function to take care of floating-point subtraction errors
-  exp.ntrials = 50;
+  exp.ntrials = _.sample([50, 100]); //This experiment version uses trial number as a between-subjects variable
   exp.timelimit = 2000;
   exp.displimit = 1000;
   exp.score = 0;
