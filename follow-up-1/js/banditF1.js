@@ -245,7 +245,7 @@ function make_slides(f) {
     question : ["How many boxes were present on-screen while you were playing the game?",
                 "Before the actual game began, the tutorial asked you twice to guess which box held the marble. How many times did you get it right?",
                 "How many trials did the game consist of?",
-                "Out of the NTRIAL trials that you saw, how many times was the marble in the <strong>RIGHT</strong>-hand container?\n"],
+                "Out of the NTRIAL trials, how many times do you think the marble was on the <strong>RIGHT</strong>?\n"],
     present : _.range(4), //acts as a forloop counter which is trackable by the progress bar
     
     //this gets run only at the beginning of the block
