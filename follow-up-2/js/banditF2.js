@@ -241,7 +241,7 @@ function make_slides(f) {
                    " times",
                    " trials",
                    " times"],
-    answer_length_constraint : [2,2,3,3],
+    answer_length_constraint : [10,10,200,0],
     question : ["How many boxes were present on-screen while you were playing the game?",
                 "Before the actual game began, the tutorial asked you twice to guess which box held the marble. How many times did you get it right?",
                 "How many trials did the game consist of?",
@@ -254,10 +254,10 @@ function make_slides(f) {
       this.stim = stim; // Since the other methods need this value
       $(".err").hide();
       $("#text_response").val('');
-      length = this.answer_length_constraint[this.stim];
-      this.maxval = Math.pow(10,length-1);
+      this.maxval = this.answer_length_constraint[this.stim];
+      if(this.maxval == 0) this.maxval = exp.ntrials;
       $(".err").html("Please enter a number between 0-" + this.maxval);
-      $("#text_response").prop('maxlength', length);
+      $("#text_response").prop('maxlength', 4);
       if(stim == 3) {
     	  $(".query").html(this.question[stim].replace("NTRIAL",exp.ntrials).replace("DIR",(exp.prev_direction=="R"?"RIGHT":"LEFT")));
       } else $(".query").html(this.question[stim]);
