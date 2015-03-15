@@ -1,0 +1,81 @@
+---
+title: "bandit-json"
+author: "mht"
+date: "March 15, 2015"
+output: html_document
+---
+
+
+
+# Libraries
+
+```{r, message=FALSE}
+library(jsonlite)
+setwd("~/Documents/research/dependent-measures/bandit/analysis")
+```
+
+# Read in all the JSON strings
+
+```{r comment=NA}
+read.file <- function(filename) {
+  con <- file(filename, "r", blocking = TRUE)
+  lines <- paste(readLines(con, warn = FALSE), collapse = "\n")
+  close(con)
+  lines
+}
+
+#json.dir <- "../mturk/sandbox-results/"
+json.dir <- "../follow-up-1/turk/production-results/"
+
+json.filenames <- paste0(json.dir, list.files(json.dir))
+json.strings <- Map(read.file, json.filenames)
+```
+
+# Convert JSON to a R data frame
+
+Merge all the json strings together, as if they are in a big array, and convert it to an R data frame:
+
+```{r comment=NA}
+json.superstring <- paste("[",paste(json.strings, collapse = ","),"]")
+assignments <- fromJSON( json.superstring )
+```
+
+## Subject information (incl. comments)
+
+```{r}
+
+subj.data <- cbind(data.frame(workerid=assignments$WorkerId,
+                              duration =assignments$answers$time_in_minutes), 
+                        assignments$answers$subject_information)
+
+View(subj.data)
+```
+
+# Trial data
+
+```{r}
+trial.data <- Map(function(id, subject.trial.data) { cbind(workerid = id, subject.trial.data) },
+                  assignments$WorkerId,
+                  assignments$answers$trials)
+
+is.bandit <- function(x) {
+  return (x$trial_type[[1]]=='multi_trial')
+}
+
+is.elicit <- function(x) {
+  return (x$trial_type[[1]]!='multi_trial')
+}
+
+strip.rownames <- function(x) {
+  rownames(x) <- NULL
+  x
+}
+
+trial.all <- strip.rownames(do.call(rbind, trial.data))
+
+d.train <- filter(trial.all, trial_type=='multi_trial')
+d.test <- filter(trial.all, trial=='prevalence')
+d.catch <- filter(trial.all, substring(trial,1,5)=='catch')
+trial.elicit <- strip.rownames(do.call(rbind, Filter(is.elicit, trial.data)))
+
+```
