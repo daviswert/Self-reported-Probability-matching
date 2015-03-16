@@ -1,39 +1,407 @@
 ---
-title: "bandit1"
-author: "mht"
-date: "December 15, 2014"
+title: "bandit2"
+author: "Davis Wertheimer"
+date: "February 4, 2014"
 output: html_document
 ---
+
+```{r, echo=FALSE, message=FALSE}
+library(MASS)
+library(lme4)
+source("C:/Users/Davis/Downloads/Ranalysis-master/Ranalysis-master/useful.R")
+```
 
 Herein lies the analysis for the first experiment of the bandit elicitation paradigm.
 
 
+Initial variables and declarations
+```{r init}
+#setwd("../data/")
+#setwd("D:/Git/Self-reported-Probability-matching/data")
+d<-read.table('../data/bandit1-trials.tsv',header=T)#,stringsAsFactors=F)
 
+df <- d %>%
+  filter(trial_type=='multi_trial') # same as subset
+
+# after filtering, need to refactor factors, because they will have empty levels
+# compare e.g.
+levels(df$response)
+# with
+levels(factor(df$response))
+
+df$response <- factor(df$response)
+
+# since bias is our between subjects variable, let's make it a factor
+df$bias<- factor(df$bias)
+
+
+str(df)
+# note: workerid is int, should be factor
+df$workerid<-factor(df$workerid)
+
+# trial should be int
+levels(factor(df$trial))
+df$trial <- to.n(df$trial)
+
+str(df)
+```
+
+Mutate and summarise data
+
+```{r mutate}
+#new column with timeouts registered as Incorrect
+df$rs_timeOutWrong<-df$result
+df[which(df$result==-1),]$rs_timeOutWrong<-0
+
+#new column indicating correct bias-matching
+
+df <- df %>% 
+  rowwise() %>%
+  mutate(bias.match=ifelse(response==bias_direction,1,0))
+
+# ungroup so we can group by other things later
+df <- df %>% ungroup()
+
+subj.stats<- df %>%
+  group_by(workerid) %>%
+  summarise(bias=sample(bias,1), 
+            bias_direction=sample(bias_direction,1), 
+            rt.mean=mean(rt), 
+            acc.outcome=mean(rs_timeOutWrong),
+            acc.match=mean(bias.match))
+
+#forming cumulative metrics for each subject
+df <- df %>%
+  group_by(workerid) %>%
+  mutate(cumul.match = cumsum(bias.match)/trial,
+         cumul.left = cumsum(response=='L')/trial)
+
+#forming cumulative metrics for each trial
+trial_aggr<-ddply(trim, .(trial,bias), summarise,
+      no_correct = sum(bias_match),
+      no_total = length(unique(workerid)))
+trial_aggr$trial_no<-to.n(trial_aggr$trial)
+trial_aggr$subj_proportion<-trial_aggr$no_correct/trial_aggr$no_total
+trial_aggr<-trial_aggr[order(trial_aggr$bias,trial_aggr$trial_no),]
+trial_aggr<-mutate(group_by(trial_aggr,bias), aggr_acc=cumsum(subj_proportion)/trial_no)
+
+```
+
+## Henry's analysis
+
+
+We collected 25 subjects worth of data so we could focus on individial subjects
+```{r probmatch}
+View(df)
+
+ggplot(df, aes(x=trial, y=cumul.match, color=bias_direction))+
+  geom_line()+
+  geom_hline(aes(yintercept=to.n(bias)/100))+
+  geom_hline(yintercept=0.5, linetype=2)+
+  facet_wrap(~workerid)
+```
+
+Thoughts: From an inference-by-eye perspective, it's much easier to discern what's going on in the 80% condition than the 60% condition. In the 80% condition, all but 1 participant ended with a cumulative bias above 50%.
+
+Here, we are comparing with the expected value of cumulative matching over the course of the experiment (i.e. 60%, 80%). The history of evidence for each participant is going to be different. It would be nice to track the actual curves (to replace the solid black lines).
+
+```{r history}
+
+df <- df %>% 
+  group_by(workerid) %>%
+  mutate(cumul.history = cumsum(1-abs(bias.match-result))/trial)
+
+ggplot(df, aes(x=trial, color=bias_direction))+
+  geom_line(aes(y=cumul.match))+
+  geom_line(aes(y=cumul.history),linetype=2)+
+  geom_hline(aes(yintercept=to.n(bias)/100))+
+  geom_hline(yintercept=0.5, linetype=2)+
+  facet_wrap(~workerid)
+
+```
+
+Hm. Well if cumul.history is the proper way of calculating the history seen by the participant, then something seems off in the coding of the experiment. 
+
+```{r historyVsMatching}
+df.final <- df %>% filter(trial==50)
+ggplot(df.final, aes(x=cumul.history, y = cumul.match, color=bias_direction))+
+  geom_point()
+
+df.final %>%
+  group_by(bias_direction) %>%
+  summarise(c=cor(cumul.history,cumul.match))
+
+# or for all trials?
+
+ggplot(df, aes(x=cumul.history, y = cumul.match, color=bias))+
+  geom_point()
+
+with(df, cor(cumul.history,cumul.match))
+
+# split by quartile of experiment
+## prediction: people should be getting closer to matching throughout the course of the experiment
+qcut <- function(x){
+  return(findInterval(x, quantile(x, seq(0, 1, 0.26), all.inside = T)))}
+
+df<-df %>%
+  mutate(quartile = factor(qcut(trial)))
+
+ggplot(df, aes(x=cumul.history, y = cumul.match, color=bias))+
+  geom_point()+
+  facet_wrap(~quartile)
+
+df %>% group_by(quartile) %>%
+  summarise(cor = cor(cumul.history,cumul.match))
+```
+
+Seems the correspondence with amtching is pretty well established after the first 15 trials.
+
+Okay, if the analysis so far is correct, we have a bug somewhere in the script such that the bias is not being implemented accurately (This doesn't seem to be the case overall, just for a few subjects). Fortunately, it doesn't matter too much for our purposes, since we just care if their explicit judgment corresponds with their implicit probability.
+
+```{r explicitjudge}
+f <- d %>%
+  filter(trial_type!="multi_trial")
+
+f <- d %>%
+  filter(trial=="prevalence") %>%
+  dplyr::select(workerid, response, bias_direction, Lbias) %>%
+  rename(free.response=response)## need dplyr:: here because conflicts with MASS::select 
+  
+  ## wtf
+  rowwise() %>%
+  mutate(free.response = if(bias_direction=='L'){response}else{100-response})
+
+f$workerid<-factor(f$workerid)
+f$free.response<-to.n(f$free.response)
+f$Lbias <- to.n(f$Lbias*100)
+
+# what does the raw data look like
+## broken down by bias strentgh
+table(filter(f,Lbias%in%c(40,60))$free.response)
+table(filter(f,Lbias%in%c(20,80))$free.response)
+
+
+f %>%
+group_by(bias_direction) %>%
+summarise(corr = cor(free.response,Lbias),
+          n = length(free.response))
+
+# is it that people just give high numbers?
+qplot(data=f, x=free.response, geom='histogram',binwidth=5, fill=factor(Lbias))+
+  geom_histogram(position=position_dodge())
+#seems like not
+
+ggplot(data=f, aes(x=Lbias, y=free.response, color=bias_direction))+
+  geom_point(position='jitter')
+
+# want to join df.final (which has the cumulative information corresponding to the entire experiement) with this explicit judgment df
+
+f0 <- left_join(df.final, f, by='workerid')
+ggplot(data=f0, aes(x=cumul.match, y = free.response))+
+  facet_wrap(~bias_direction)+
+  geom_point()
+
+
+```
+
+
+Missing Trials?
+=
 ```{r}
-setwd("~/Documents/research/depmeas/bandit/turk/bandit1")
-df<-read.table('bandit1_anonymized-trials.tsv',header=T)
+#This is odd. Two of the subjects didn't go through all 50 trials...
+df %>% ungroup() %>%
+  group_by(workerid) %>%
+  summarise(N = length(rt)) %>%
+  filter(N!=50)
+
+#This isn't NA screening... we're really just missing 8 trials. 
+subset(ddply(df, c("result"), summarise, N=length(rt)))
+```
 
 
-ggplot(data=subset(df,trial_type=='multi_trial'),aes(x=rt))+
-  geom_histogram(alpha=0.6)
+Reaction Time
+=
+```{r}
+#Reaction time distribution for multitrial
+qplot(data=df[which(df$trial_type=="multi_trial"),], x=rt/1000, geom='histogram')+
+  facet_wrap(~bias)+
+  ylab("Count")+
+  xlab("Reaction Time (seconds)")
 
-df0<-ddply(subset(df,trial_type=='multi_trial'), 
-      .(workerid), summarise, 
-      relative_prop = cumsum(result)/to.n(trial), trial=to.n(trial),
-      relative_left = cumsum(response=='L')/to.n(trial), 
-      Lbias = factor(Lbias_.),
-      biasDir = factor(bias_direction))
+#Reaction time distribution for prevalence
+qplot(data=df[which(df$trial_type=="elicit_prevalence"),], x=rt/1000, geom='histogram')+
+  facet_wrap(~bias)+
+  ylab("Count")+
+  xlab("Reaction Time (seconds)")
 
-ggplot(df0, aes(x=trial,y=relative_prop,group=workerid,color=workerid))+
-  geom_line(size=1)+
-  ylab("relative proportion correct")+
-  facet_wrap(~Lbias)+
-  guides(color=F)
+#rts for matching vs nonmatching
+trim$bias_match <- factor(trim$bias_match)
+ggplot(trim, aes(x=bias_match, y=rt/1000, fill = bias_match))+
+  geom_boxplot()+
+  guides(fill=FALSE)+
+  xlab(" ")+
+  ylab("RT (seconds)")+
+  ggtitle("Distribution of RTs for Matching vs Nonmatching Responses")+
+  scale_x_discrete(labels=c("Nonmatch","Match"))
 
-ggplot(df0, aes(x=trial, y=relative_left, group=workerid,color=workerid))+
+#Distribution of reaction times over bias levels and response types
+ggplot(trim, aes(x=rt/1000, fill = bias_match))+
+  geom_histogram()+
+  guides(fill=FALSE)+
+  facet_grid(bias~bias_match)
+
+
+#Seems that subjs deliberate for longer when they choose not to bias-match
+rs<-glm(data=trim, bias_match ~ rt, family='binomial')
+summary(rs)
+
+# additive model: predicting RT from bias_match and bias_condition
+trim$bias<-factor(trim$bias)
+rs<-lm(data=trim, rt ~ bias_match + bias)
+
+# interactive model, 
+rs<-lm(data=trim, rt ~ bias_match * bias)
+summary(rs)
+
+# interactive, mixed linear regression
+rs<-lmer(data=trim, rt ~ bias_match*bias + (1 + bias_match | workerid))
+summary(rs)
+
+
+#Subjects' avg rt plotted against total match accuracy. In general, subjs who deliberate match less, regardless of bias level!
+ggplot(subj_aggr, aes(x=rt/1000, y=match_acc))+
+  geom_point(shape=1)+
+  facet_wrap(~bias)+
+  geom_smooth(method=lm)+
+  ylab("Matching Rate")
+
+
+# medium negative correlation between RT & Match_accuracy
+## higher accuracy --> shorter reaction RT
+subj_aggr %>%
+  group_by(bias) %>%
+  summarise(correlation = cor(rt,match_acc))
+
+# additive model significant, interactive model nearly so. More data would easily help here. 
+rs<-lm(data=subj_aggr, rt ~ match_acc+bias)
+rs<-lm(data=subj_aggr, rt ~ match_acc*bias)
+summary(rs)
+
+  
+```
+
+
+Bias Direction:
+=
+```{r, message=FALSE}
+
+#Effect of bias direction on performance, across levels. 
+trim$bias_direction <- factor(trim$bias_direction)
+trim$bias_match <- to.n(trim$bias_match)
+bias_dir<-ddply(trim, .(bias, bias_direction), summarise, 
+      N = length(unique(workerid)), 
+      rt = mean(rt), 
+      rs_acc = mean(result), 
+      match_acc = mean(bias_match),
+      sterr = sem(bias_match))
+
+# Matching rates across biases and directions
+ggplot(data=bias_dir, aes(x=bias, y=match_acc, fill=bias_direction))+
+  geom_bar(stat='identity', position=position_dodge(0.5), width=0.5)+
+  geom_errorbar(aes(ymax = match_acc + 2*sterr, ymin= match_acc-2*sterr), position=position_dodge(0.5),width=0.3)+
+  ylim(0,1)+
+  ylab("Bias Matching Rate")+
+  xlab("Bias Level")
+
+#Mean subject left-preference over all trials
+score_aggr$workerid <- factor(score_aggr$workerid)
+ggplot(score_aggr, aes(x=trial, y=relative_left, group=workerid, color=workerid))+
   geom_line(size=1)+
   ylab("relative L responses")+
   facet_wrap(~Lbias)+
   guides(color=F)
 
+#Number of Right vs Left responses, since that inequality seems kind of glaring
+# Possible TODO: add in expected number of left and right responses, since we can calculate this explicitly from bias and bias direction
+rs_dir<-ddply(trim, c("response"), summarise,
+              N=length(rt))
+qplot(response, N, data=rs_dir, geom='bar', stat='identity')
+
 ```
+
+
+Bias Level:
+=
+```{r}
+#Mean subject accuracy over all trials
+ggplot(score_aggr, aes(x=trial, y=relative_prop, group=workerid, color=workerid))+
+  geom_line(size=1)+
+  ylab("Cumulative Match Accuracy")+
+  facet_wrap(~bias)+
+  guides(color=F)
+
+#Num of subjs correctly matching during each trial
+ggplot(data=trial_aggr,aes(x=trial_no,y=subj_proportion))+
+  geom_line(size=1.5)+
+  ylab("Proportion of Subjects Matching")+
+  facet_wrap(~bias)
+
+#Mean cumulative accuracy aggregated over all subjects by trial
+ggplot(trial_aggr, aes(x=trial_no,y=aggr_acc))+
+  geom_line(size=1)+
+  ylim(0,1)+
+  ylab("Mean Cumulative Match Accuracy")+
+  facet_wrap(~bias)
+
+#Final subj mean accuracy by bias
+ggplot(subj_aggr, aes(x=factor(bias), y=match_acc, fill=factor(bias)))+
+  geom_boxplot()+
+  xlab("Bias")+
+  ylab("Subject's Total Match Accuracy")+
+  guides(fill=FALSE)
+
+#HOW TO ANALYZE THIS CLOSENESS? i.e. ASSIGN A NULL HYPOTHESIS OF 60/80?
+```
+
+
+Prevalence Processing: 
+
+To sum it up early: performance accuracy has little to do with prevalence accuracy
+
+```{r}
+prev<-df[which(df$trial_type=="elicit_prevalence"), c('workerid', 'rt', 'Lbias', 'bias', 'trial', 'response')]
+score1<-prev[which(prev$trial=="catch1"),]$response=="2"
+score2<-prev[which(prev$trial=="catch2"),]$response=="2"
+score3<-prev[which(prev$trial=="catch3"),]$response=="50"
+subj_prev <- prev[which(prev$trial=="prevalence"), c('workerid', 'Lbias', 'bias', 'response')]
+subj_prev$catch_score <- score1+score2+score3
+subj_prev$off_by <- abs(as.numeric(subj_prev$response) - 100*subj_prev$Lbias)
+subj_prev$trial_acc <- subj_aggr$match_acc
+
+#Match accuracy as a measure of reporting accuracy. Oh dear. 
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
+
+#Even within catch score groups, little to no relation
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  facet_wrap(~catch_score, scales='free')+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
+
+#Same thing for within bias groups
+ggplot(subj_prev, aes(x=trial_acc,y=off_by))+
+  geom_point(shape=1)+
+  geom_smooth(method=lm)+
+  facet_wrap(~bias)+
+  xlab("Total Match Accuracy")+
+  ylab("Distance from Correct Percentage (%)")
+
+
+```
+
+

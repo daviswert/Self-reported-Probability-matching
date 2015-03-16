@@ -5,7 +5,7 @@ date: "March 15, 2015"
 output: html_document
 ---
 
-
+We are analyzing the data slightly differently due to a different interface with Mechnical Turk. The code below reads in individual subject JSON files, and turns them into data frames for training (or, bandit) trials, test trials, and catch trials.
 
 # Libraries
 
@@ -51,11 +51,30 @@ subj.data <- cbind(data.frame(workerid=assignments$WorkerId,
 View(subj.data)
 ```
 
+## Anonymize workerId
+
+```{r}
+# create "dictionary"
+worker.list<-levels(subj.data$workerid)
+
+# rewrite with anonymized IDs
+subj.data$workerid<-as.factor(1:length(worker.list))
+
+# example of retrieving workerId from anonymized number
+worker.list[to.n(subj.data$workerid[3])]
+# example of going from workerID to anonymized number
+which(worker.list=="workerid")
+
+
+write.csv(subj.data, '../data/bandit2_n80_subject_data_anonymized.csv')
+```
+
 # Trial data
 
 ```{r}
 trial.data <- Map(function(id, subject.trial.data) { cbind(workerid = id, subject.trial.data) },
-                  assignments$WorkerId,
+                  #assignments$WorkerId,
+                  subj.data$workerid,
                   assignments$answers$trials)
 
 is.bandit <- function(x) {
@@ -76,6 +95,10 @@ trial.all <- strip.rownames(do.call(rbind, trial.data))
 d.train <- filter(trial.all, trial_type=='multi_trial')
 d.test <- filter(trial.all, trial=='prevalence')
 d.catch <- filter(trial.all, substring(trial,1,5)=='catch')
-trial.elicit <- strip.rownames(do.call(rbind, Filter(is.elicit, trial.data)))
-
+write.csv(d.train, '../data/bandit2_n80_training_data_anonymized.csv')
+write.csv(d.test, '../data/bandit2_n80_test_data_anonymized.csv')
+write.csv(d.catch, '../data/bandit2_n80_catch_data_anonymized.csv')
 ```
+
+
+

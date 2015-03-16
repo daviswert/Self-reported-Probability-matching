@@ -5,3 +5,9 @@ experiment/turk/
 data/
 *.Rhistory
 *.Rdata
+
+follow-up-1/turk/
+follow-up-2/turk/
+
+*auth
+*settings

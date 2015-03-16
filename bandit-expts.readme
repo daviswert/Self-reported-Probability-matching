@@ -5,3 +5,9 @@ bandit experiments
 	exp.n_trials = 50;
 	max time / trial = 2000ms;
 	delay / trial = ...?
+
+2. probabilities: between [60,80]
+   dominant side = R
+   n_trials = between [50, 100]
+   max time / trial = 2000ms;
+   delay / trial = ...?
