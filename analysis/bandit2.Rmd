@@ -1,0 +1,172 @@
+---
+title: "bandit2"
+author: "mht"
+date: "March 16, 2015"
+output: html_document
+---
+
+```{r, echo=FALSE, message=FALSE}
+#library(MASS)
+library(lme4)
+source("C:/Users/Davis/Downloads/Ranalysis-master/Ranalysis-master/useful.R")
+```
+
+Herein lies the analysis for the first experiment of the bandit elicitation paradigm.
+
+Subject data (incl. comments, strategies)
+```{r init}
+#setwd("../data/")
+#setwd("D:/Git/Self-reported-Probability-matching/data")
+d.subj<-read.csv('../data/bandit2_n80_subject_data_anonymized.csv')#,stringsAsFactors=F)
+View(d.subj)
+```
+
+```{r}
+
+d.train <- read.csv("../data//bandit2_n80_training_data_anonymized.csv")
+View(d.train)
+
+
+str(d.train)
+
+d.train <- d.train %>%
+  select(workerid,rt,bias_.,trial,result,ntrials,response,matched) %>%
+  rename(bias=bias_.,
+         trial.num=trial,
+         marble=result) %>%
+  mutate(bias = factor(bias),
+         ntrials = factor(ntrials),
+         workerid = factor(workerid))
+  
+str(d.train)
+```
+
+Subject-wise summarise data
+
+```{r mutate}
+
+# replace time-outs with 0s
+d.train$marble<-replace(d.train$marble,which(d.train$marble==-1),0)
+
+subj.stats<- d.train %>%
+  #filter(marble!=-1) %>% # remove time-out trials; only matters for ""
+  group_by(workerid, bias, ntrials) %>%
+  summarise(rt_mean=mean(rt), 
+            marble_mean=mean(marble),
+            match_mean=mean(matched))
+
+subj.history <- d.train %>%
+  group_by(workerid, bias, ntrials) %>%
+  mutate( match_cumul = cumsum(matched) / trial.num,
+            marble_cumul = cumsum(marble) / trial.num)
+
+
+```
+
+## Analysis
+
+
+We collected 80 subjects worth of data so we could focus on individial subjects
+
+```{r probmatch}
+
+ggplot(subj.history, aes(x=trial.num, y=match_cumul, color=bias))+
+  geom_line()+
+  geom_hline(aes(yintercept=to.n(bias)/100))+
+  geom_hline(yintercept=0.5, linetype=2)+
+  facet_wrap(~workerid)
+```
+
+Thoughts: 100 seems good. Some people get it at 50, but more at 100.
+
+Davis: Is the difference between matching for 60 & 80 reduced when ntrials = 100?
+
+```{r}
+group.stats <- subj.stats %>%
+  group_by(bias, ntrials) %>%
+  summarise(match_mean_group = mean(match_mean),
+            match_sterr_group = sem(match_mean)) %>%
+  mutate(match_mean_group = match_mean_group-(to.n(bias)/100))
+            
+ggplot(group.stats, aes(x = ntrials, fill=bias, y= match_mean_group))+
+  geom_bar(stat='identity', position=position_dodge(),width=0.3)+
+  geom_errorbar(aes(ymin=match_mean_group-2*match_sterr_group, 
+                    ymax = match_mean_group+2*match_sterr_group),
+                position=position_dodge(),
+                width = 0.3)
+
+
+```
+
+Ans: Possibly. Though all CIs overlap 0. Possibly the variance decreases with n = 100. The difference in matching between 60& 80 for the ntrials=50 might be slightly significant.
+
+
+# Elicitation data
+
+```{r}
+
+d.test <- read.csv("../data/bandit2_n80_test_data_anonymized.csv")
+View(d.test)
+
+replace(d.test$response,which(d.test$ntrials==50),d.test$response*2)
+
+double.count <- function(x,ntrials){
+  if (to.n(ntrials)==50){
+    count = x*2
+    
+  } else {
+    count = x
+  }
+  return(count)
+}
+
+str(d.test)
+
+d.test <- d.test %>%
+  select(workerid,rt,bias_.,ntrials,response) %>%
+  rename(bias=bias_.) %>%
+  mutate(bias = factor(bias),
+         ntrials = factor(ntrials),
+         workerid = factor(workerid),
+         response = (response/to.n(ntrials))*100)
+  
+
+test.stats<- d.test %>%
+  group_by(bias, ntrials) %>%
+  summarise(mean_response = mean(response),
+            sterr = sem(response)) %>%
+  mutate(mean_response = mean_response-to.n(bias))
+
+
+ggplot(test.stats, aes(x = ntrials, fill=bias, y= mean_response))+
+  geom_bar(stat='identity', position=position_dodge(),width=0.3)+
+  geom_errorbar(aes(ymin=mean_response-2*sterr, 
+                    ymax = mean_response+2*sterr),
+                position=position_dodge(),
+                width = 0.3)
+```
+
+
+```{r}
+ggplot(d.test, aes(x=response, fill=bias))+
+  geom_histogram(binwidth=1)+
+  facet_grid(bias~ntrials)+
+  xlim(0,100)
+
+table(d.test$bias, d.test$ntrials)
+```
+
+
+Missing Trials?
+=
+```{r}
+#This is odd. Two of the subjects didn't go through all 50 trials...
+d.train %>% ungroup() %>%
+  group_by(workerid) %>%
+  summarise(N = length(rt)) %>%
+  filter(!((N==50) || (N=100)))
+
+```
+
+Seemingly, we do have the right numbers of trials.
+

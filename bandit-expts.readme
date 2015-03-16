@@ -11,3 +11,10 @@ bandit experiments
    n_trials = between [50, 100]
    max time / trial = 2000ms;
    delay / trial = ...?
+
+   post-comments:
+   	1. record trial history (array of L, R where the marble appeared)
+   		- per trial, preferred (as vs. subj_info)
+   	2. follow-up: record "response" in terms of % of bias/Right 
+   				(e.g. given a bias of 80 in the Right direction;
+   					Query for Left: response = 30 for Left --> 70 for bias)
