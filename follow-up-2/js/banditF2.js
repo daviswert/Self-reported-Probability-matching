@@ -131,19 +131,6 @@ function make_slides(f) {
 	      $(".prompt").html("Which container holds the marble? Hit 'q' or 'p' to indicate your choice.");
 	  },
 
-	  //Debugging code - probably safe to delete at this point
-	  /*countAnswers : function() {
-		  num0 = 0;
-		  num1 = 0;
-		  for(var i = 0; i < this.present.length; i++) {
-			  if(this.present[i].answer == 0) num0++;
-			  else num1++;
-		  }
-		  console.log("Zeroes: "+num0);
-		  console.log("Ones: "+num1);
-		  console.log("Total: "+(num0+num1));
-	  },*/
-
 	  present_handle : function(stim) {
 	      this.stim = stim;
 	      $(".status").html("Your score is "+exp.score);
@@ -217,6 +204,7 @@ function make_slides(f) {
 	        "trial" : exp.ntrials + 1 - this.count,
 	        "response" : answer,
 	        "result" : result,
+	        "marble" : this.stim.answer==0?"L":"R",
 	        "matched" : matched,
 	        "rt" : rTime,
 	        "bias_%" : (exp.bias*100),
@@ -270,16 +258,18 @@ function make_slides(f) {
         $(".err").show();
       } else {
         this.rt = Date.now() - this.startTime;
-        this.log_responses();
+        result = $('#text_response').val();
+        if(this.stim==3 && exp.prev_direction=="L") result = exp.ntrials-result; // Log answers relative to the bias direction (right)
+        this.log_responses(result);
         _stream.apply(this);
       }
     },
 
-    log_responses : function() {
+    log_responses : function(result) {
       exp.data_trials.push({
         "trial_type" : "elicit_prevalence",
         "trial" : this.type[this.stim],
-        "response" : $("#text_response").val(),
+        "response" : result,
         "matched" : 0,
         "rt" : this.rt,
         "bias_%" : (exp.bias*100),
@@ -332,7 +322,7 @@ function init() {
   exp.catch_trials = [];
   exp.bias = _.sample([0.6, 0.8]); //Level of bias toward one side or the other, expressed as a decimal > 0.5
   exp.prev_direction = _.sample(["L","R"]);
-  exp.ntrials = 2; //DECIDE WHETHER TO MAKE THIS 50 OR 100
+  exp.ntrials = 100;
   exp.timelimit = 2000;
   exp.displimit = 1000;
   exp.score = 0;
