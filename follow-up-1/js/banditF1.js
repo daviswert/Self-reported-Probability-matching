@@ -373,3 +373,46 @@ function init() {
 
   exp.go(); //show first slide
 }
+
+/// Overriding the advancing function in Stream_V2 ///
+var _stream = function() {
+  if (exp.nQs) {
+    //if number of total questions is defined, then show progress bar
+    $('#bar').css('width', ( (exp.phase / exp.nQs)*100 + "%"));
+    $('#secbar').css('width', ((exp.secphase/exp.secnQs[exp.cursec])*100 + "%"));
+  } else {
+    $(".progress").hide();
+  }
+
+  if (this.present == undefined) {
+    advance();
+    //not a presented slide (i.e. there are not multiple trials using the same slide)
+  } else {
+    var presented_stims = this.present || [];
+
+    if (presented_stims.length === 0) {
+      //done with slide
+      if (this.end) {this.end();};
+      this.callback();
+    } else if (this.present_handle) {
+      advance();
+      var stim = presented_stims.shift();
+      if (this.catch_trial_handle && stim.catchT) {
+        //Catch Trial
+        this.catch_trial_handle(stim);
+      } else {
+        //Normal Trial
+        this.present_handle(stim);
+      }
+    }
+  }
+};
+
+function advance() {
+	exp.phase++;
+	exp.secphase++;
+	if(exp.secphase - exp.secnQs[exp.cursec] > 0) {
+		exp.secphase = 0;
+		exp.cursec++;
+	}
+}
